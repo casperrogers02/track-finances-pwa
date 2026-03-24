@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - SpendWise</title>
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Manage your SpendWise settings and preferences">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.svg">
+    <link rel="icon" type="image/svg+xml" href="icons/icon-192x192.svg">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Offline Banner -->
+    <div id="offlineBanner" class="offline-banner">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg> You are currently offline. Changes will be saved locally and synced when you're back online.
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <span class="nav-item-icon" style="display: inline-flex; align-items: center;"><svg
+                            xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg></span>
+                    <span>SpendWise</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <span class="nav-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg></span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="expenses.html" class="nav-item">
+                    <span class="nav-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg></span>
+                    <span>Expenses</span>
+                </a>
+                <a href="income.html" class="nav-item">
+                    <span class="nav-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="6" x2="12" y2="18"></line>
+                            <line x1="9" y1="12" x2="15" y2="12"></line>
+                        </svg></span>
+                    <span>Income</span>
+                </a>
+                <a href="goals.html" class="nav-item">
+                    <span class="nav-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg></span>
+                    <span>Goals</span>
+                </a>
+                <a href="reports.html" class="nav-item">
+                    <span class="nav-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg></span>
+                    <span>Reports</span>
+                </a>
+                <a href="settings.html" class="nav-item active">
+                    <span class="nav-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path
+                                d="M12 1v6m0 6v6m9-9h-6m-6 0H3m15.364 6.364l-4.243-4.243m-4.242 0L5.636 17.364M18.364 6.636l-4.243 4.243m-4.242 0L5.636 6.636">
+                            </path>
+                        </svg></span>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item" onclick="logout(); return false;">
+                    <span class="nav-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg></span>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Sidebar Overlay (Mobile) -->
+        <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button id="hamburgerBtn" class="hamburger-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                            height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg></button>
+                    <h1 class="page-title word-ghost" data-text="Settings">Settings</h1>
+                </div>
+                <div class="topbar-right">
+                    <div class="status-indicator">
+                        <span id="statusDot" class="status-dot"></span>
+                        <span id="statusText">Online</span>
+                    </div>
+                    <!-- Notification Bell Icon -->
+                    <div id="notificationIcon" class="notification-icon"
+                        style="position: relative; cursor: pointer; margin: 0 16px; display: flex; align-items: center; justify-content: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="display: block;">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span id="notificationBadge" style="
+                            position: absolute;
+                            top: -4px;
+                            right: -4px;
+                            background: #10b981;
+                            color: white;
+                            font-size: 10px;
+                            font-weight: 600;
+                            padding: 2px 5px;
+                            border-radius: 10px;
+                            min-width: 18px;
+                            height: 18px;
+                            display: none;
+                            align-items: center;
+                            justify-content: center;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                        "></span>
+                    </div>
+                    <div id="profileAvatar" class="profile-avatar" title="Profile"></div>
+                </div>
+            </header>
+
+            <!-- Content Wrapper -->
+            <div class="content-wrapper">
+                <!-- Alert Container -->
+                <div id="alertContainer"></div>
+
+                <!-- Page Header -->
+                <div style="margin-bottom: 24px;">
+                    <h2 style="margin-bottom: 8px;">Settings & Preferences</h2>
+                    <p style="color: var(--text-secondary); font-size: 14px;">Customize your SpendWise experience</p>
+                </div>
+
+                <!-- Theme Settings -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3 class="card-title">Appearance</h3>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Theme</label>
+                        <select id="themeSelect" class="form-select">
+                            <option value="dark">Dark (Default)</option>
+                            <option value="light">Light</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Currency & Preferences -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3 class="card-title">Preferences</h3>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Default Currency</label>
+                        <select id="currencySelect" class="form-select">
+                            <option value="UGX">UGX - Ugandan Shilling</option>
+                            <option value="USD">USD - US Dollar</option>
+                            <option value="EUR">EUR - Euro</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="KES">KES - Kenyan Shilling</option>
+                            <option value="TZS">TZS - Tanzanian Shilling</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Profile Settings -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3 class="card-title">Profile Information</h3>
+                    </div>
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <div id="settingsProfileAvatar" class="profile-avatar"
+                            style="width: 80px; height: 80px; margin: 0 auto; cursor: pointer; font-size: 32px;"
+                            title="Click to change profile picture"></div>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Click to upload
+                            profile picture</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" id="profileName" class="form-input" placeholder="Your name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="profileEmail" class="form-input" placeholder="your.email@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" id="profilePhone" class="form-input" placeholder="+256700000000">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveProfile()" style="width: 100%;">Save Profile</button>
+                </div>
+
+                <!-- Password Change -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3 class="card-title">Change Password</h3>
+                    </div>
+                    <form id="passwordForm" onsubmit="changePassword(event)">
+                        <div class="form-group">
+                            <label class="form-label">Current Password</label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="currentPassword" class="form-input" required>
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePassword('currentPassword')"><svg xmlns="http://www.w3.org/2000/svg"
+                                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg></button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">New Password</label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="newPassword" class="form-input" required minlength="6">
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePassword('newPassword')"><svg xmlns="http://www.w3.org/2000/svg"
+                                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg></button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Confirm New Password</label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="confirmPassword" class="form-input" required minlength="6">
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePassword('confirmPassword')"><svg xmlns="http://www.w3.org/2000/svg"
+                                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg></button>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Change Password</button>
+                    </form>
+                </div>
+
+                <!-- Mobile Money Sync -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3 class="card-title"><span
+                                style="display: inline-flex; align-items: center; margin-right: 8px;"><svg
+                                    xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                                    <line x1="1" y1="10" x2="23" y2="10"></line>
+                                </svg></span> Mobile Money Transaction Sync</h3>
+                    </div>
+                    <div class="form-group">
+                        <div
+                            style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                            <div>
+                                <label class="form-label" style="margin: 0;">Enable Mobile Money Sync</label>
+                                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                    Automatically detect transactions from SMS or uploaded statements
+                                </p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="enableSync" onchange="toggleMobileMoneySync()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="syncOptions" style="display: none;">
+                        <div class="form-group">
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                <label class="form-label" style="margin: 0;">Sync Incomes</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="syncIncomes" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                <label class="form-label" style="margin: 0;">Sync Expenses</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="syncExpenses" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 20px;">
+                            <label class="form-label">Upload Statement (CSV/PDF)</label>
+                            <input type="file" id="statementUpload" class="form-input" accept=".csv,.pdf"
+                                onchange="handleStatementUpload(event)">
+                            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                Upload a CSV or PDF statement from your Mobile Money provider
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Manual SMS Entry</label>
+                            <textarea id="smsText" class="form-textarea" rows="3"
+                                placeholder="Paste SMS transaction text here..."></textarea>
+                            <button type="button" class="btn btn-outline" onclick="parseSMS()"
+                                style="margin-top: 8px; width: 100%;">Parse SMS</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Load API module first and expose to global scope -->
+    <script type="module">
+        import * as apiModule from './js/api.js';
+        window.getToken = apiModule.getToken;
+        window.setToken = apiModule.setToken;
+        window.removeToken = apiModule.removeToken;
+        window.getUser = apiModule.getUser;
+        window.setUser = apiModule.setUser;
+        window.authAPI = apiModule.authAPI;
+        window.expensesAPI = apiModule.expensesAPI;
+        window.incomeAPI = apiModule.incomeAPI;
+        window.goalsAPI = apiModule.goalsAPI;
+        window.goalAllocationsAPI = apiModule.goalAllocationsAPI;
+        window.categoriesAPI = apiModule.categoriesAPI;
+        window.aiAPI = apiModule.aiAPI;
+        window.reportsAPI = apiModule.reportsAPI;
+        window.mobileMoneyAPI = apiModule.mobileMoneyAPI;
+        window.notificationsAPI = apiModule.notificationsAPI;
+        window.apiModuleReady = true;
+        window.dispatchEvent(new Event('apiModuleReady'));
+    </script>
+    <script src="js/theme.js"></script>
+    <!-- Load currency module and expose to global scope -->
+    <script type="module">
+        import * as currencyModule from './js/currency.js';
+        window.convert = currencyModule.convert;
+        window.formatCurrency = currencyModule.formatCurrency;
+        window.getAvailableCurrencies = currencyModule.getAvailableCurrencies;
+    </script>
+    <script type="module">
+        import { icons, getIcon } from './js/icons.js';
+        window.icons = icons;
+        window.getIcon = getIcon;
+    </script>
+    <script src="js/offline.js"></script>
+    <script src="js/navigation.js?v=3"></script>
+    <script src="js/settings.js"></script>
+</body>
+
+</html>

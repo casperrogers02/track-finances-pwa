@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - SpendWise</title>
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Create your SpendWise account">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.svg">
+    <link rel="icon" type="image/svg+xml" href="icons/icon-192x192.svg">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            background: var(--bg-primary);
+        }
+
+        .auth-card {
+            max-width: 450px;
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .auth-header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .auth-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .auth-footer {
+            text-align: center;
+            margin-top: 24px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .auth-footer a {
+            color: var(--accent-teal);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>SpendWise</h1>
+                <p>Create your account to get started</p>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <form id="signupForm">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-input" name="full_name" required placeholder="Casper Rogers">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" name="email" required placeholder="your@email.com">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Phone (Optional)</label>
+                    <input type="tel" class="form-input" name="phone" placeholder="+256700000000">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" class="form-input" name="password" id="passwordInput" required
+                            minlength="6" placeholder="At least 6 characters">
+                        <button type="button" class="password-toggle" id="passwordToggle" onclick="togglePassword()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Preferred Currency</label>
+                    <select class="form-select" name="preferred_currency">
+                        <option value="UGX" selected>UGX - Ugandan Shilling</option>
+                        <option value="USD">USD - US Dollar</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="GBP">GBP - British Pound</option>
+                        <option value="KES">KES - Kenyan Shilling</option>
+                        <option value="TZS">TZS - Tanzanian Shilling</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Sign Up</button>
+            </form>
+
+            <div class="auth-footer">
+                Already have an account? <a href="login.html">Login here</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load API module first and expose to global scope -->
+    <script type="module">
+        import * as apiModule from './js/api.js';
+        // Expose to global scope
+        window.getToken = apiModule.getToken;
+        window.setToken = apiModule.setToken;
+        window.removeToken = apiModule.removeToken;
+        window.getUser = apiModule.getUser;
+        window.setUser = apiModule.setUser;
+        window.authAPI = apiModule.authAPI;
+        window.expensesAPI = apiModule.expensesAPI;
+        window.incomeAPI = apiModule.incomeAPI;
+        window.goalsAPI = apiModule.goalsAPI;
+        window.goalAllocationsAPI = apiModule.goalAllocationsAPI;
+        window.categoriesAPI = apiModule.categoriesAPI;
+        window.aiAPI = apiModule.aiAPI;
+        window.reportsAPI = apiModule.reportsAPI;
+        window.mobileMoneyAPI = apiModule.mobileMoneyAPI;
+        // Signal that API is ready
+        window.apiModuleReady = true;
+        window.dispatchEvent(new Event('apiModuleReady'));
+    </script>
+    <script type="module">
+        import { icons, getIcon } from './js/icons.js';
+        window.icons = icons;
+        window.getIcon = getIcon;
+    </script>
+    <script src="js/theme.js"></script>
+    <script>
+        // Wait for API module to load before initializing
+        function initSignup() {
+            const signupForm = document.getElementById('signupForm');
+            const alertContainer = document.getElementById('alertContainer');
+            const passwordInput = document.getElementById('passwordInput');
+            const passwordToggle = document.getElementById('passwordToggle');
+
+            function showAlert(message, type = 'error') {
+                alertContainer.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+                setTimeout(() => {
+                    alertContainer.innerHTML = '';
+                }, 5000);
+            }
+
+            function togglePassword() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                passwordToggle.innerHTML = type === 'password' ? getIcon('eye') : getIcon('eyeOff');
+            }
+
+            window.togglePassword = togglePassword;
+
+            signupForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                // Ensure authAPI is available
+                if (!window.authAPI) {
+                    showAlert('System is still loading. Please wait a moment and try again.');
+                    return;
+                }
+
+                const formData = new FormData(signupForm);
+                const data = {
+                    full_name: formData.get('full_name'),
+                    email: formData.get('email'),
+                    password: formData.get('password'),
+                    phone: formData.get('phone') || null,
+                    preferred_currency: formData.get('preferred_currency')
+                };
+
+                try {
+                    const response = await window.authAPI.signup(data);
+                    window.setToken(response.token);
+                    window.setUser(response.user);
+                    showAlert('Account created successfully! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } catch (error) {
+                    showAlert(error.message || 'Signup failed. Please try again.');
+                }
+            });
+        }
+
+        // Wait for API module or DOMContentLoaded
+        if (window.apiModuleReady) {
+            initSignup();
+        } else {
+            window.addEventListener('apiModuleReady', initSignup);
+            document.addEventListener('DOMContentLoaded', () => {
+                // If API still not ready after DOM loads, wait a bit more
+                if (!window.apiModuleReady) {
+                    const checkInterval = setInterval(() => {
+                        if (window.apiModuleReady) {
+                            clearInterval(checkInterval);
+                            initSignup();
+                        }
+                    }, 50);
+                    // Timeout after 2 seconds
+                    setTimeout(() => {
+                        clearInterval(checkInterval);
+                        if (window.apiModuleReady) {
+                            initSignup();
+                        }
+                    }, 2000);
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,55 @@
+{
+  "name": "SpendWise",
+  "short_name": "SpendWise",
+  "description": "Smart financial tracking for Uganda",
+  "start_url": "/frontend/index.html",
+  "display": "standalone",
+  "background_color": "#0c0c1d",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "scope": "/frontend/",
+  "icons": [
+    {
+      "src": "icons/icon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity", "business"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Add Expense",
+      "short_name": "Expense",
+      "description": "Quickly add a new expense",
+      "url": "/frontend/expenses.html",
+      "icons": [
+        {
+          "src": "icons/icon-192x192.svg",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "description": "View financial overview",
+      "url": "/frontend/dashboard.html",
+      "icons": [
+        {
+          "src": "icons/icon-192x192.svg",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
