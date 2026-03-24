@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "spendwise-backend",
   "version": "1.0.0",
   "description": "SpendWise Backend API",
