@@ -1,4 +1,4 @@
-const API_BASE_URL = `http://${window.location.hostname}:3002/api`;
+const API_BASE_URL = `https://track-finances-pwa-production.up.railway.app/api`;
 
 // Get auth token from localStorage
 export function getToken() {
