@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: ['https://track-finances-pwa-production.up.railway.app', 'http://localhost:3000'],
+  origin: ['https://track-finances-pwa-production.up.railway.app', 'http://localhost:3000', 'track-finances-pwa.vercel.app'],
   credentials: true
 }));
 app.use(express.json());
