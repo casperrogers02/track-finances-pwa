@@ -2,7 +2,7 @@
   "name": "SpendWise",
   "short_name": "SpendWise",
   "description": "Smart financial tracking for Uganda",
-  "start_url": "/frontend/index.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#0c0c1d",
   "theme_color": "#6366f1",
