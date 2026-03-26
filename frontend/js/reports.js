@@ -220,10 +220,63 @@ async function loadReport() {
 // Fetch data and render
 async function fetchAndRenderReport(from, to) {
     try {
-        const [expensesRes, incomeRes] = await Promise.all([
-            expensesAPI.getAll({ from, to, limit: 10000 }),
-            incomeAPI.getAll({ from, to, limit: 10000 })
-        ]);
+        let expensesRes = { expenses: [] };
+        let incomeRes = { income: [] };
+        let useOfflineData = false;
+        
+        try {
+            expensesRes = await expensesAPI.getAll({ from, to, limit: 10000 });
+            // Cache the data for offline use
+            if (navigator.onLine && expensesRes.expenses && expensesRes.expenses.length > 0) {
+                localStorage.setItem('cachedExpenses', JSON.stringify(expensesRes.expenses));
+            }
+        } catch (error) {
+            console.error('Error loading expenses for report:', error);
+            useOfflineData = true;
+        }
+        
+        try {
+            incomeRes = await incomeAPI.getAll({ from, to, limit: 10000 });
+            // Cache the data for offline use
+            if (navigator.onLine && incomeRes.income && incomeRes.income.length > 0) {
+                localStorage.setItem('cachedIncome', JSON.stringify(incomeRes.income));
+            }
+        } catch (error) {
+            console.error('Error loading income for report:', error);
+            useOfflineData = true;
+        }
+
+        // If offline or API calls failed, use cached data
+        if (!navigator.onLine || useOfflineData) {
+            const cachedExpenses = localStorage.getItem('cachedExpenses');
+            const cachedIncome = localStorage.getItem('cachedIncome');
+            
+            if (cachedExpenses) {
+                expensesRes.expenses = JSON.parse(cachedExpenses);
+                // Filter cached data by date range
+                expensesRes.expenses = expensesRes.expenses.filter(exp => {
+                    const expDate = new Date(exp.date);
+                    const fromDate = new Date(from);
+                    const toDate = new Date(to);
+                    return expDate >= fromDate && expDate <= toDate;
+                });
+            }
+            
+            if (cachedIncome) {
+                incomeRes.income = JSON.parse(cachedIncome);
+                // Filter cached data by date range
+                incomeRes.income = incomeRes.income.filter(inc => {
+                    const incDate = new Date(inc.date);
+                    const fromDate = new Date(from);
+                    const toDate = new Date(to);
+                    return incDate >= fromDate && incDate <= toDate;
+                });
+            }
+            
+            if (!navigator.onLine) {
+                console.log('Using cached data for offline reports');
+            }
+        }
 
         const expenses = expensesRes.expenses || expensesRes.data?.expenses || [];
         const income = incomeRes.income || incomeRes.data?.income || [];
@@ -806,8 +859,33 @@ window.exportCSV = async function () {
 };
 
 function showNotification(message, type = 'info') {
-    const container = document.getElementById('alertContainer');
-    if (!container) return;
-    container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-    setTimeout(() => { container.innerHTML = ''; }, 5000);
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    
+    // Create a simple toast notification
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        max-width: 300px;
+        word-wrap: break-word;
+        background: ${type === 'error' ? '#f85149' : type === 'success' ? '#3fb950' : type === 'warning' ? '#d29922' : '#58a6ff'};
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        font-size: 14px;
+    `;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 3000);
 }

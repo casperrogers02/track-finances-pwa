@@ -228,7 +228,6 @@ async function loadCategories() {
 }
 
 // Load dashboard data
-// Load dashboard data
 async function loadDashboardData() {
     try {
         // Calculate date range based on current period and date
@@ -256,25 +255,77 @@ async function loadDashboardData() {
             return;
         }
 
+        let useOfflineData = false;
+        
         try {
             expensesRes = await expensesAPIFn.getAll({ from, to, limit: 1000 });
+            // Cache the data for offline use
+            if (navigator.onLine && expensesRes.expenses && expensesRes.expenses.length > 0) {
+                localStorage.setItem('cachedExpenses', JSON.stringify(expensesRes.expenses));
+            }
         } catch (error) {
             console.error('Error loading expenses:', error);
+            useOfflineData = true;
         }
 
         try {
             incomeRes = await incomeAPIFn.getAll({ from, to, limit: 1000 });
+            // Cache the data for offline use
+            if (navigator.onLine && incomeRes.income && incomeRes.income.length > 0) {
+                localStorage.setItem('cachedIncome', JSON.stringify(incomeRes.income));
+            }
         } catch (error) {
             console.error('Error loading income:', error);
+            useOfflineData = true;
         }
 
         try {
             // Goals are usually long-term, so we normally fetch all active goals.
-            // If the API supports filtering by date range (e.g. created/due within period), usage would depend on requirements.
-            // For now, fetch all goals to show "Active Goals" count accurately.
             goalsRes = await goalsAPIFn.getAll();
+            // Cache the data for offline use
+            if (navigator.onLine && goalsRes.goals && goalsRes.goals.length > 0) {
+                localStorage.setItem('cachedGoals', JSON.stringify(goalsRes.goals));
+            }
         } catch (error) {
             console.error('Error loading goals:', error);
+            useOfflineData = true;
+        }
+
+        // If offline or API calls failed, use cached data
+        if (!navigator.onLine || useOfflineData) {
+            const cachedExpenses = localStorage.getItem('cachedExpenses');
+            const cachedIncome = localStorage.getItem('cachedIncome');
+            const cachedGoals = localStorage.getItem('cachedGoals');
+            
+            if (cachedExpenses) {
+                expensesRes.expenses = JSON.parse(cachedExpenses);
+                // Filter cached data by date range
+                expensesRes.expenses = expensesRes.expenses.filter(exp => {
+                    const expDate = new Date(exp.date);
+                    const fromDate = new Date(from);
+                    const toDate = new Date(to);
+                    return expDate >= fromDate && expDate <= toDate;
+                });
+            }
+            
+            if (cachedIncome) {
+                incomeRes.income = JSON.parse(cachedIncome);
+                // Filter cached data by date range
+                incomeRes.income = incomeRes.income.filter(inc => {
+                    const incDate = new Date(inc.date);
+                    const fromDate = new Date(from);
+                    const toDate = new Date(to);
+                    return incDate >= fromDate && incDate <= toDate;
+                });
+            }
+            
+            if (cachedGoals) {
+                goalsRes.goals = JSON.parse(cachedGoals);
+            }
+            
+            if (!navigator.onLine) {
+                console.log('Using cached data for offline mode');
+            }
         }
 
         // Parse data
