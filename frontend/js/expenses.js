@@ -111,6 +111,11 @@ async function loadCategories() {
     try {
         const response = await categoriesAPI.getAll('expense');
         categories = response.categories || [];
+        
+        // Cache categories for offline use
+        if (navigator.onLine && categories.length > 0) {
+            localStorage.setItem('cachedCategories', JSON.stringify(categories));
+        }
 
         const select = document.getElementById('expenseCategory');
         const filterSelect = document.getElementById('categoryFilter');
@@ -138,6 +143,44 @@ async function loadCategories() {
         });
     } catch (error) {
         console.error('Error loading categories:', error);
+        
+        // If offline, try to load cached categories
+        if (!navigator.onLine || error.message.includes('offline')) {
+            const cachedData = localStorage.getItem('cachedCategories');
+            if (cachedData) {
+                categories = JSON.parse(cachedData);
+                
+                const select = document.getElementById('expenseCategory');
+                const filterSelect = document.getElementById('categoryFilter');
+
+                // Clear existing options (keep only the first placeholder option)
+                while (select.options.length > 1) {
+                    select.remove(1);
+                }
+                while (filterSelect.options.length > 1) {
+                    filterSelect.remove(1);
+                }
+
+                categories.forEach(cat => {
+                    // Create option for expense form dropdown
+                    const formOption = document.createElement('option');
+                    formOption.value = cat.name;
+                    formOption.textContent = cat.name;
+                    select.appendChild(formOption);
+
+                    // Create separate option for filter dropdown
+                    const filterOption = document.createElement('option');
+                    filterOption.value = cat.name;
+                    filterOption.textContent = cat.name;
+                    filterSelect.appendChild(filterOption);
+                });
+                
+                showNotification('Using cached categories - will sync when online', 'info');
+                return;
+            }
+        }
+        
+        showNotification('Error loading categories', 'error');
     }
 }
 
@@ -154,9 +197,27 @@ async function loadExpenses() {
         });
 
         allExpenses = response.expenses || [];
+        
+        // Cache the data for offline use
+        if (navigator.onLine && allExpenses.length > 0) {
+            localStorage.setItem('cachedExpenses', JSON.stringify(allExpenses));
+        }
+        
         applyFilters();
     } catch (error) {
         console.error('Error loading expenses:', error);
+        
+        // If offline, try to load cached data
+        if (!navigator.onLine || error.message.includes('offline')) {
+            const cachedData = localStorage.getItem('cachedExpenses');
+            if (cachedData) {
+                allExpenses = JSON.parse(cachedData);
+                applyFilters();
+                showNotification('Using cached data - will sync when online', 'info');
+                return;
+            }
+        }
+        
         showNotification('Error loading expenses', 'error');
     }
 }

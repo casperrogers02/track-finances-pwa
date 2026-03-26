@@ -55,9 +55,27 @@ async function loadGoals() {
     try {
         const response = await goalsAPI.getAll();
         goals = response.goals || [];
+        
+        // Cache goals for offline use
+        if (navigator.onLine && goals.length > 0) {
+            localStorage.setItem('cachedGoals', JSON.stringify(goals));
+        }
+        
         await renderGoals(); // Now async because it calculates progress
     } catch (error) {
         console.error('Error loading goals:', error);
+        
+        // If offline, try to load cached goals
+        if (!navigator.onLine || error.message.includes('offline')) {
+            const cachedData = localStorage.getItem('cachedGoals');
+            if (cachedData) {
+                goals = JSON.parse(cachedData);
+                await renderGoals(); // Now async because it calculates progress
+                showNotification('Using cached goals - will sync when online', 'info');
+                return;
+            }
+        }
+        
         showNotification('Error loading goals', 'error');
     }
 }

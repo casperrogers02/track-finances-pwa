@@ -113,6 +113,11 @@ async function loadSources() {
     try {
         const response = await categoriesAPI.getAll('income');
         sources = response.categories || [];
+        
+        // Cache sources for offline use
+        if (navigator.onLine && sources.length > 0) {
+            localStorage.setItem('cachedIncomeSources', JSON.stringify(sources));
+        }
 
         const select = document.getElementById('incomeSource');
         const filterSelect = document.getElementById('sourceFilter');
@@ -140,6 +145,44 @@ async function loadSources() {
         });
     } catch (error) {
         console.error('Error loading sources:', error);
+        
+        // If offline, try to load cached sources
+        if (!navigator.onLine || error.message.includes('offline')) {
+            const cachedData = localStorage.getItem('cachedIncomeSources');
+            if (cachedData) {
+                sources = JSON.parse(cachedData);
+                
+                const select = document.getElementById('incomeSource');
+                const filterSelect = document.getElementById('sourceFilter');
+
+                // Clear existing options (keep only the first placeholder option)
+                while (select.options.length > 1) {
+                    select.remove(1);
+                }
+                while (filterSelect.options.length > 1) {
+                    filterSelect.remove(1);
+                }
+
+                sources.forEach(src => {
+                    // Create option for income form dropdown
+                    const formOption = document.createElement('option');
+                    formOption.value = src.name;
+                    formOption.textContent = src.name;
+                    select.appendChild(formOption);
+
+                    // Create separate option for filter dropdown
+                    const filterOption = document.createElement('option');
+                    filterOption.value = src.name;
+                    filterOption.textContent = src.name;
+                    filterSelect.appendChild(filterOption);
+                });
+                
+                showNotification('Using cached sources - will sync when online', 'info');
+                return;
+            }
+        }
+        
+        showNotification('Error loading sources', 'error');
     }
 }
 
@@ -156,9 +199,27 @@ async function loadIncome() {
         });
 
         allIncome = response.income || [];
+        
+        // Cache the data for offline use
+        if (navigator.onLine && allIncome.length > 0) {
+            localStorage.setItem('cachedIncome', JSON.stringify(allIncome));
+        }
+        
         applyFilters();
     } catch (error) {
         console.error('Error loading income:', error);
+        
+        // If offline, try to load cached data
+        if (!navigator.onLine || error.message.includes('offline')) {
+            const cachedData = localStorage.getItem('cachedIncome');
+            if (cachedData) {
+                allIncome = JSON.parse(cachedData);
+                applyFilters();
+                showNotification('Using cached data - will sync when online', 'info');
+                return;
+            }
+        }
+        
         showNotification('Error loading income', 'error');
     }
 }

@@ -196,11 +196,25 @@ function initOfflineIndicator() {
         }
 
         if (statusText) {
+            // Only update status text if it exists and we're sure about the status
             if (isOffline) {
                 statusText.textContent = queueStats.total > 0 ? `Offline (${queueStats.total} queued)` : 'Offline';
             } else {
                 statusText.textContent = queueStats.total > 0 ? `Syncing (${queueStats.total})` : 'Online';
             }
+        }
+        
+        // Clear any existing alerts that might show incorrect status
+        const alertContainer = document.getElementById('alertContainer');
+        if (alertContainer && isOffline) {
+            // Clear any "online" alerts when offline
+            const alerts = alertContainer.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                const text = alert.textContent || '';
+                if (text.includes('online') || text.includes('Online')) {
+                    alert.remove();
+                }
+            });
         }
     }
 
