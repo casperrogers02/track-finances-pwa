@@ -354,53 +354,72 @@ async function handleSaveIncome(e) {
     try {
         let savedIncome;
         if (incomeId) {
-            // Update the income record
-            savedIncome = await incomeAPI.update(incomeId, data);
+            // Update the income record using offline API wrapper
+            const result = await window.offlineQueue.offlineApiCall(
+                (data) => incomeAPI.update(incomeId, data),
+                'update',
+                'income',
+                { ...data, id: incomeId }
+            );
 
-            // Handle Goal Allocations for Edit
-            // 1. Always remove existing allocations first (clean slate)
-            try {
-                await goalAllocationsAPI.deleteByIncome(incomeId);
-                // Also clear local storage backup
-                const incomeIdStr = String(incomeId);
-                let allAllocations = JSON.parse(localStorage.getItem('goalAllocations') || '{}');
-                if (allAllocations[incomeIdStr]) {
-                    delete allAllocations[incomeIdStr];
-                    localStorage.setItem('goalAllocations', JSON.stringify(allAllocations));
+            // Handle Goal Allocations for Edit (only if online)
+            if (!result.offline) {
+                // 1. Always remove existing allocations first (clean slate)
+                try {
+                    await goalAllocationsAPI.deleteByIncome(incomeId);
+                    // Also clear local storage backup
+                    const incomeIdStr = String(incomeId);
+                    let allAllocations = JSON.parse(localStorage.getItem('goalAllocations') || '{}');
+                    if (allAllocations[incomeIdStr]) {
+                        delete allAllocations[incomeIdStr];
+                        localStorage.setItem('goalAllocations', JSON.stringify(allAllocations));
+                    }
+                } catch (err) {
+                    console.error('Error clearing old allocations:', err);
                 }
-            } catch (err) {
-                console.error('Error clearing old allocations:', err);
-            }
 
-            // 2. If allocation is selected, create new allocation
-            if (allocateToGoal && goalId && goalAmount > 0) {
-                // Pass incomeId directly since we are editing
-                await allocateIncomeToGoal(goalId, goalAmount, data.currency, incomeId);
-
-                // Show specific success message
-                showNotification('Income updated and allocated to goal', 'success');
+                // 2. If allocation is selected, create new allocation
+                if (allocateToGoal && goalId && goalAmount > 0) {
+                    // Pass incomeId directly since we are editing
+                    await allocateIncomeToGoal(goalId, goalAmount, data.currency, incomeId);
+                    showNotification('Income updated and allocated to goal', 'success');
+                } else {
+                    showNotification('Income updated successfully', 'success');
+                }
             } else {
-                showNotification('Income updated successfully', 'success');
+                showNotification(result.message, 'info');
             }
         } else {
-            savedIncome = await incomeAPI.create(data);
-            showNotification('Income added successfully', 'success');
+            // Create new income using offline API wrapper
+            const result = await window.offlineQueue.offlineApiCall(
+                incomeAPI.create,
+                'create',
+                'income',
+                data
+            );
+            
+            if (!result.offline) {
+                savedIncome = result;
+                showNotification('Income added successfully', 'success');
 
-            // Get the actual income ID from response
-            const actualIncomeId = savedIncome?.id || savedIncome?.income?.id || savedIncome?.data?.id;
-            const incomeRecordForAllocation = actualIncomeId || savedIncome;
+                // Get the actual income ID from response
+                const actualIncomeId = savedIncome?.id || savedIncome?.income?.id || savedIncome?.data?.id;
+                const incomeRecordForAllocation = actualIncomeId || savedIncome;
 
-            // Handle goal allocation (manual takes priority over auto)
-            if (allocateToGoal && goalId && goalAmount > 0) {
-                await allocateIncomeToGoal(goalId, goalAmount, data.currency, incomeRecordForAllocation);
-                // Process auto-allocation for other goals (excluding the manually allocated goal)
-                const remainingAmount = data.amount - goalAmount;
-                if (remainingAmount > 0) {
-                    await processAutoAllocationRules(remainingAmount, data.currency, incomeRecordForAllocation, goalId);
+                // Handle goal allocation (manual takes priority over auto)
+                if (allocateToGoal && goalId && goalAmount > 0) {
+                    await allocateIncomeToGoal(goalId, goalAmount, data.currency, incomeRecordForAllocation);
+                    // Process auto-allocation for other goals (excluding the manually allocated goal)
+                    const remainingAmount = data.amount - goalAmount;
+                    if (remainingAmount > 0) {
+                        await processAutoAllocationRules(remainingAmount, data.currency, incomeRecordForAllocation, goalId);
+                    }
+                } else {
+                    // Check for auto-allocation rules (full amount)
+                    await processAutoAllocationRules(data.amount, data.currency, incomeRecordForAllocation);
                 }
             } else {
-                // Check for auto-allocation rules (full amount)
-                await processAutoAllocationRules(data.amount, data.currency, incomeRecordForAllocation);
+                showNotification(result.message, 'info');
             }
         }
 

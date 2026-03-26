@@ -271,28 +271,40 @@ async function handleSaveExpense(e) {
 
     try {
         if (expenseId) {
-            await expensesAPI.update(expenseId, data);
-            showNotification('Expense updated successfully', 'success');
+            // For updates, use offline API wrapper
+            const result = await window.offlineQueue.offlineApiCall(
+                (data) => expensesAPI.update(expenseId, data),
+                'update',
+                'expense',
+                { ...data, id: expenseId }
+            );
+            
+            if (result.offline) {
+                showNotification(result.message, 'info');
+            } else {
+                showNotification('Expense updated successfully', 'success');
+            }
         } else {
-            await expensesAPI.create(data);
-            showNotification('Expense added successfully', 'success');
+            // For new expenses, use offline API wrapper
+            const result = await window.offlineQueue.offlineApiCall(
+                expensesAPI.create,
+                'create',
+                'expense',
+                data
+            );
+            
+            if (result.offline) {
+                showNotification(result.message, 'info');
+            } else {
+                showNotification('Expense added successfully', 'success');
+            }
         }
+        
         if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
         closeModal();
         await loadExpenses();
     } catch (error) {
-        // If offline, add to queue
-        if (!navigator.onLine || error.message.includes('offline')) {
-            if (!expenseId) {
-                addToQueue(data);
-                closeModal();
-                showNotification('Expense queued for sync when online', 'info');
-            } else {
-                showNotification('Cannot edit expenses while offline', 'error');
-            }
-        } else {
-            showNotification(error.message || 'Error saving expense', 'error');
-        }
+        showNotification(error.message || 'Error saving expense', 'error');
     }
 }
 

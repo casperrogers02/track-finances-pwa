@@ -166,10 +166,22 @@ function initOfflineIndicator() {
 
     function updateOfflineStatus() {
         const isOffline = !navigator.onLine;
+        const queueStats = window.offlineQueue ? window.offlineQueue.getOfflineStats() : { total: 0 };
 
         if (offlineBanner) {
             if (isOffline) {
                 offlineBanner.classList.add('show');
+                // Update banner text to include queue info
+                const bannerText = offlineBanner.querySelector('.banner-text');
+                if (bannerText) {
+                    let message = 'You are offline. ';
+                    if (queueStats.total > 0) {
+                        message += `${queueStats.total} items queued for sync.`;
+                    } else {
+                        message += 'Data will sync when online.';
+                    }
+                    bannerText.textContent = message;
+                }
             } else {
                 offlineBanner.classList.remove('show');
             }
@@ -184,7 +196,11 @@ function initOfflineIndicator() {
         }
 
         if (statusText) {
-            statusText.textContent = isOffline ? 'Offline mode' : 'Online';
+            if (isOffline) {
+                statusText.textContent = queueStats.total > 0 ? `Offline (${queueStats.total} queued)` : 'Offline';
+            } else {
+                statusText.textContent = queueStats.total > 0 ? `Syncing (${queueStats.total})` : 'Online';
+            }
         }
     }
 
@@ -204,6 +220,27 @@ function initOfflineIndicator() {
     window.addEventListener('offline', () => {
         updateOfflineStatus();
     });
+
+    // Listen for offline sync events
+    window.addEventListener('offline-sync-complete', (event) => {
+        updateOfflineStatus();
+        const { synced, failed, remaining } = event.detail;
+        const notifyFn = window.showNotification || showToast;
+        if (notifyFn) {
+            if (synced > 0 && failed === 0) {
+                notifyFn(`Successfully synced ${synced} items!`, 'success');
+            } else if (synced > 0 && failed > 0) {
+                notifyFn(`Synced ${synced} items, ${failed} failed`, 'warning');
+            }
+        }
+    });
+
+    // Update queue status every 5 seconds when items are queued
+    setInterval(() => {
+        if (window.offlineQueue && window.offlineQueue.getOfflineStats().total > 0) {
+            updateOfflineStatus();
+        }
+    }, 5000);
 }
 
 // Navbar title: fade/ghost animation while the content scrolls

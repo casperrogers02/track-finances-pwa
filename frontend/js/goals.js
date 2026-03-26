@@ -226,25 +226,49 @@ async function handleSaveGoal(e) {
     try {
         let savedGoal;
         if (goalId) {
-            savedGoal = await goalsAPI.update(goalId, data);
-            showNotification('Goal updated successfully', 'success');
+            // Update goal using offline API wrapper
+            const result = await window.offlineQueue.offlineApiCall(
+                (data) => goalsAPI.update(goalId, data),
+                'update',
+                'goal',
+                { ...data, id: goalId }
+            );
+            
+            if (!result.offline) {
+                savedGoal = result;
+                showNotification('Goal updated successfully', 'success');
 
-            // Save auto-allocation rule locally
-            if (data.auto_allocation_enabled) {
-                saveAutoAllocationRule(goalId, data.auto_allocation_percentage);
+                // Save auto-allocation rule locally
+                if (data.auto_allocation_enabled) {
+                    saveAutoAllocationRule(goalId, data.auto_allocation_percentage);
+                } else {
+                    // Remove rule if disabled
+                    removeAutoAllocationRule(goalId);
+                }
             } else {
-                // Remove rule if disabled
-                removeAutoAllocationRule(goalId);
+                showNotification(result.message, 'info');
             }
         } else {
-            savedGoal = await goalsAPI.create(data);
-            showNotification('Goal created successfully', 'success');
+            // Create new goal using offline API wrapper
+            const result = await window.offlineQueue.offlineApiCall(
+                goalsAPI.create,
+                'create',
+                'goal',
+                data
+            );
+            
+            if (!result.offline) {
+                savedGoal = result;
+                showNotification('Goal created successfully', 'success');
 
-            // Save auto-allocation rule locally with new goal ID
-            // Try different response structures
-            const newGoalId = savedGoal?.goal?.id || savedGoal?.id || savedGoal?.data?.id;
-            if (data.auto_allocation_enabled && newGoalId) {
-                saveAutoAllocationRule(newGoalId, data.auto_allocation_percentage);
+                // Save auto-allocation rule locally with new goal ID
+                // Try different response structures
+                const newGoalId = savedGoal?.goal?.id || savedGoal?.id || savedGoal?.data?.id;
+                if (data.auto_allocation_enabled && newGoalId) {
+                    saveAutoAllocationRule(newGoalId, data.auto_allocation_percentage);
+                }
+            } else {
+                showNotification(result.message, 'info');
             }
         }
 
