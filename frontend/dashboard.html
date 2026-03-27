@@ -120,7 +120,7 @@
             <!-- Top Bar -->
             <header class="topbar">
                 <div class="topbar-left">
-                    <button id="hamburgerBtn" class="hamburger-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                    <button id="hamburgerBtn" class="hamburger-btn" onclick="console.log('Inline click works!'); alert('Hamburger button clicked!')"><svg xmlns="http://www.w3.org/2000/svg" width="24"
                             height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                             stroke-linecap="round" stroke-linejoin="round">
                             <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -455,6 +455,41 @@
     </script>
     <script src="js/offline.js"></script>
     <script src="js/navigation.js?v=3"></script>
+    
+    <!-- Simple test for hamburger button -->
+    <script>
+        function testHamburger() {
+            console.log('Test function called!');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebar && overlay) {
+                sidebar.classList.toggle('active');
+                overlay.classList.toggle('active');
+                console.log('Sidebar toggled via test function');
+            } else {
+                console.error('Sidebar or overlay not found');
+            }
+        }
+        
+        // Test if elements exist
+        setTimeout(() => {
+            const hamburger = document.getElementById('hamburgerBtn');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            console.log('Elements check:', {
+                hamburger: !!hamburger,
+                sidebar: !!sidebar,
+                overlay: !!overlay
+            });
+            
+            if (hamburger) {
+                console.log('Hamburger button found, adding click listener...');
+                hamburger.addEventListener('click', testHamburger);
+            }
+        }, 2000);
+    </script>
     <!-- Load notifications module and expose to global scope -->
 
     <script type="module" src="js/dashboard.js?v=3"></script>

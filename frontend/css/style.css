@@ -239,7 +239,7 @@ a:hover {
 }
 
 .hamburger-btn {
-  display: none;
+  display: flex; /* Changed from 'none' to 'flex' for testing */
   background: none;
   border: none;
   color: var(--text-primary);
