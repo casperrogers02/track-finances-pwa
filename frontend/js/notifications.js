@@ -34,10 +34,27 @@ async function loadNotifications() {
     try {
         const response = await window.notificationsAPI.getAll({ limit: 50 });
         const notifications = response.notifications || [];
-
+        
+        // Cache notifications for offline use
+        if (navigator.onLine && notifications.length > 0) {
+            localStorage.setItem('cachedNotifications', JSON.stringify(notifications));
+        }
+        
         renderNotifications(notifications);
     } catch (error) {
         console.error('Error loading notifications:', error);
+        
+        // If offline, try to load cached notifications
+        if (!navigator.onLine || error.message.includes('offline')) {
+            const cachedData = localStorage.getItem('cachedNotifications');
+            if (cachedData) {
+                const notifications = JSON.parse(cachedData);
+                renderNotifications(notifications);
+                console.log('Using cached notifications for offline mode');
+                return;
+            }
+        }
+        
         listContainer.innerHTML = `
             <div class="empty-state">
                 <p>Error loading notifications. Please try again.</p>

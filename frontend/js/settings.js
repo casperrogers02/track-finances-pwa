@@ -231,17 +231,51 @@ window.openCameraCapture = openCameraCapture;
 window.openFilePicker = openFilePicker;
 
 // Load profile picture
-function loadProfilePicture(user) {
+async function loadProfilePicture(user) {
     const avatars = document.querySelectorAll('#profileAvatar, #settingsProfileAvatar'); // Added settingsProfileAvatar
     if (avatars.length === 0) return;
 
-    // Check user object first, then localStorage
+    // First, try to get the latest profile picture from server
+    try {
+        if (navigator.onLine && getToken()) {
+            const response = await fetch(`${API_BASE_URL}/profile/picture`, {
+                headers: {
+                    'Authorization': `Bearer ${getToken()}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.profile_picture) {
+                    // Update user object with server URL
+                    if (user) {
+                        user.profile_picture = data.profile_picture;
+                        setUser(user);
+                    }
+                    
+                    let fullUrl = data.profile_picture;
+                    if (fullUrl.startsWith('/uploads')) {
+                        const url = new URL(API_BASE_URL);
+                        fullUrl = `${url.origin}${fullUrl}`;
+                    }
+                    
+                    // Save to localStorage for offline fallback
+                    localStorage.setItem('profilePicture', fullUrl);
+                    updateAllProfileAvatars(fullUrl);
+                    return;
+                }
+            }
+        }
+    } catch (error) {
+        console.log('Could not fetch latest profile picture from server, using cached version');
+    }
+
+    // Fallback to cached version
     let pictureUrl = user?.profile_picture || localStorage.getItem('profilePicture');
 
     // Handle relative paths from backend
     if (pictureUrl && pictureUrl.startsWith('/uploads')) {
         try {
-            // content served from root, so if API_BASE_URL is http://loc:3000/api, we need http://loc:3000
             const url = new URL(API_BASE_URL);
             pictureUrl = `${url.origin}${pictureUrl}`;
         } catch (e) {
@@ -249,28 +283,13 @@ function loadProfilePicture(user) {
         }
     }
 
-    avatars.forEach(avatar => {
-        if (pictureUrl) {
-            avatar.style.backgroundImage = `url(${pictureUrl})`;
-            avatar.style.backgroundSize = 'cover';
-            avatar.style.backgroundPosition = 'center';
-            avatar.textContent = '';
-        } else {
-            // Show initials
-            avatar.style.backgroundImage = '';
-            if (user && user.full_name) {
-                const initials = user.full_name
-                    .split(' ')
-                    .map(n => n[0])
-                    .join('')
-                    .toUpperCase()
-                    .slice(0, 2);
-                avatar.textContent = initials;
-            } else if (user && user.email) {
-                avatar.textContent = user.email[0].toUpperCase();
-            }
-        }
-    });
+    // If we have a picture URL, update all avatars
+    if (pictureUrl) {
+        updateAllProfileAvatars(pictureUrl);
+    } else {
+        // Set default avatar
+        updateAllProfileAvatars(null);
+    }
 }
 
 // Upload profile picture

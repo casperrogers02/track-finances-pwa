@@ -2,6 +2,22 @@
 
 // Initialize navigation
 document.addEventListener('DOMContentLoaded', () => {
+    // Check authentication
+    if (!getToken()) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Load user info and update profile avatar
+    const user = getUser();
+    if (user) {
+        updateProfileAvatar();
+        // Sync profile picture from server when online
+        if (navigator.onLine) {
+            syncProfilePictureFromServer();
+        }
+    }
+
     initNavigation();
     initOfflineIndicator();
     initNavbarTitleScrollEffect();
@@ -14,18 +30,17 @@ function initNavigation() {
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-    if (hamburgerBtn) {
+    if (hamburgerBtn && sidebar && sidebarOverlay) {
         hamburgerBtn.addEventListener('click', () => {
-            sidebar?.classList.toggle('open');
-            sidebarOverlay?.classList.toggle('show');
+            sidebar.classList.toggle('active');
+            sidebarOverlay.classList.toggle('active');
         });
     }
 
-    // Close sidebar when clicking overlay
     if (sidebarOverlay) {
         sidebarOverlay.addEventListener('click', () => {
-            sidebar?.classList.remove('open');
-            sidebarOverlay?.classList.remove('show');
+            sidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
         });
     }
 
@@ -34,13 +49,21 @@ function initNavigation() {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             if (window.innerWidth <= 768) {
-                sidebar?.classList.remove('open');
-                sidebarOverlay?.classList.remove('show');
+                sidebar?.classList.remove('active');
+                sidebarOverlay?.classList.remove('active');
             }
         });
     });
 
-    // Set active nav item based on current page
+    // Set active navigation link based on current page
+    const currentPage = window.location.pathname.split('/').pop() || 'dashboard.html';
+    const navLinks = document.querySelectorAll('.nav-item');
+    navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === currentPage) {
+            link.classList.add('active');
+        }
+    });
     setActiveNavItem();
 
     // Update profile avatar
@@ -160,32 +183,12 @@ notificationChannel.onmessage = (event) => {
 
 // Initialize offline indicator
 function initOfflineIndicator() {
-    const offlineBanner = document.getElementById('offlineBanner');
     const statusDot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
 
     function updateOfflineStatus() {
         const isOffline = !navigator.onLine;
         const queueStats = window.offlineQueue ? window.offlineQueue.getOfflineStats() : { total: 0 };
-
-        if (offlineBanner) {
-            if (isOffline) {
-                offlineBanner.classList.add('show');
-                // Update banner text to include queue info
-                const bannerText = offlineBanner.querySelector('.banner-text');
-                if (bannerText) {
-                    let message = 'You are offline. ';
-                    if (queueStats.total > 0) {
-                        message += `${queueStats.total} items queued for sync.`;
-                    } else {
-                        message += 'Data will sync when online.';
-                    }
-                    bannerText.textContent = message;
-                }
-            } else {
-                offlineBanner.classList.remove('show');
-            }
-        }
 
         if (statusDot) {
             if (isOffline) {
@@ -334,8 +337,42 @@ function logout() {
             localStorage.removeItem('token');
         }
         localStorage.removeItem('user');
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
     }
 }
 
 window.logout = logout;
+
+// Sync profile picture from server
+async function syncProfilePictureFromServer() {
+    try {
+        const API_BASE_URL = window.API_BASE_URL || 'https://track-finances-pwa-production.up.railway.app/api';
+        const response = await fetch(`${API_BASE_URL}/profile/picture`, {
+            headers: {
+                'Authorization': `Bearer ${getToken()}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.profile_picture) {
+                const user = getUser();
+                if (user) {
+                    user.profile_picture = data.profile_picture;
+                    setUser(user);
+                }
+                
+                let fullUrl = data.profile_picture;
+                if (fullUrl.startsWith('/uploads')) {
+                    const url = new URL(API_BASE_URL);
+                    fullUrl = `${url.origin}${fullUrl}`;
+                }
+                
+                localStorage.setItem('profilePicture', fullUrl);
+                updateProfileAvatar();
+            }
+        }
+    } catch (error) {
+        console.log('Could not sync profile picture from server:', error);
+    }
+}
