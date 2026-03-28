@@ -1,14 +1,14 @@
 // Settings page functionality
 document.addEventListener('DOMContentLoaded', async () => {
     // Check authentication
-  if (!getToken()) {
-    window.location.href = 'login.html';
-    return;
-  }
+    if (!getToken()) {
+        window.location.href = 'login.html';
+        return;
+    }
 
     // Load user info
-  const user = getUser();
-  if (user) {
+    const user = getUser();
+    if (user) {
         // Populate profile fields
         const nameInput = document.getElementById('profileName');
         const emailInput = document.getElementById('profileEmail');
@@ -232,7 +232,6 @@ window.openFilePicker = openFilePicker;
 
 // Load profile picture
 async function loadProfilePicture(user) {
-    const API_BASE_URL = window.API_BASE_URL || 'https://track-finances-pwa-production.up.railway.app/api';
     const avatars = document.querySelectorAll('#profileAvatar, #settingsProfileAvatar'); // Added settingsProfileAvatar
     if (avatars.length === 0) return;
 
@@ -244,7 +243,7 @@ async function loadProfilePicture(user) {
                     'Authorization': `Bearer ${getToken()}`
                 }
             });
-            
+
             if (response.ok) {
                 const data = await response.json();
                 if (data.profile_picture) {
@@ -253,13 +252,13 @@ async function loadProfilePicture(user) {
                         user.profile_picture = data.profile_picture;
                         setUser(user);
                     }
-                    
+
                     let fullUrl = data.profile_picture;
                     if (fullUrl.startsWith('/uploads')) {
                         const url = new URL(API_BASE_URL);
                         fullUrl = `${url.origin}${fullUrl}`;
                     }
-                    
+
                     // Save to localStorage for offline fallback
                     localStorage.setItem('profilePicture', fullUrl);
                     updateAllProfileAvatars(fullUrl);
@@ -295,7 +294,6 @@ async function loadProfilePicture(user) {
 
 // Upload profile picture
 async function uploadProfilePicture(file) {
-    const API_BASE_URL = window.API_BASE_URL || 'https://track-finances-pwa-production.up.railway.app/api';
     if (file.size > 5 * 1024 * 1024) { // Updated to 5MB to match backend
         showNotification('Image size must be less than 5MB', 'error');
         return;
@@ -375,8 +373,8 @@ function updateAllProfileAvatars(imageUrl) {
             avatar.style.backgroundSize = 'cover';
             avatar.style.backgroundPosition = 'center';
             avatar.textContent = '';
-    }
-  });
+        }
+    });
 }
 
 // Save profile
@@ -473,12 +471,12 @@ async function saveProfile() {
                 }
 
                 // Update locally anyway for offline support
-    const user = getUser();
-    if (user) {
-      user.full_name = full_name || user.full_name;
-      user.phone = phone || user.phone;
+                const user = getUser();
+                if (user) {
+                    user.full_name = full_name || user.full_name;
+                    user.phone = phone || user.phone;
                     user.email = email || user.email;
-      setUser(user);
+                    setUser(user);
                     sessionStorage.setItem('user', JSON.stringify(user));
                 }
 
