@@ -369,19 +369,19 @@ function buildCharts(data) {
 
         if (categoryLabels.length > 0) {
             categoryChart = new Chart(categoryCtx.getContext('2d'), {
-                type: 'pie',
-                data: {
+        type: 'pie',
+        data: {
                     labels: categoryLabels,
-                    datasets: [{
+            datasets: [{
                         data: categoryValues,
-                        backgroundColor: [
+                backgroundColor: [
                             '#2ec4b6', '#3fb950', '#58a6ff', '#a78bfa', '#f4a261',
                             '#f85149', '#d29922', '#8b949e', '#6e7681', '#484f58'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
@@ -751,6 +751,22 @@ async function generateAIRecommendations(data) {
     const container = document.getElementById('aiRecommendations');
     if (!container) return;
 
+    // If offline, show cached recommendations or a message
+    if (!navigator.onLine) {
+        const cachedRecs = localStorage.getItem('cachedAIRecommendations');
+        if (cachedRecs) {
+            container.innerHTML = `
+                <div style="padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md); line-height: 1.8; color: var(--text-primary);">
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">📡 Offline — showing last saved recommendations</div>
+                    ${cachedRecs}
+                </div>
+            `;
+        } else {
+            container.innerHTML = '<div style="padding: 16px; color: var(--text-secondary);">AI recommendations require an internet connection. Connect online to get personalized advice.</div>';
+        }
+        return;
+    }
+
     // Spinner
     container.innerHTML = '<div class="loading">Generating recommendations...</div>';
 
@@ -766,8 +782,24 @@ async function generateAIRecommendations(data) {
         const totalExpenses = data.summary.totalExpenses;
         const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0;
 
+        // Build goals context for AI
+        const goalsContext = goals.map(g => ({
+            title: g.title || g.name,
+            target: parseFloat(g.target_amount) || 0,
+            progress: parseFloat(g.progress) || 0,
+            percentage: g.target_amount > 0 ? ((parseFloat(g.progress || 0) / parseFloat(g.target_amount)) * 100).toFixed(1) : 0,
+            deadline: g.deadline || g.target_date || 'No deadline set',
+            currency: g.currency || currentCurrency
+        }));
+
         const context = {
-            system_instructions: "You are a savvy personal finance advisor for a Ugandan user. Analyze their financial summary below. identifying patterns. Give 3 actionable, specific tips to improve their savings rate and financial health. Suggest local investment options (like Unit Trusts, SACCOs, Bonds) if they have a surplus, or cost-cutting measures for specific categories if they are overspending. Be encouraging but direct.",
+            system_instructions: `You are a savvy personal finance advisor for a Ugandan user using SpendWise. Analyze their complete financial picture below — income, expenses, savings, AND goals. Give 3-4 actionable, specific tips that cover:
+1. How to improve their savings rate or cut overspending in specific categories
+2. Progress toward their financial goals and what they can do to reach them faster
+3. Local investment or business opportunities (Unit Trusts, SACCOs, Bonds, side businesses) based on their surplus or interests
+4. Any warnings if they're overspending relative to income
+
+Be encouraging but direct. Reference their actual numbers. If they have goals, comment on each goal's progress.`,
             user_financial_data: {
                 currency: currentCurrency,
                 totalIncome,
@@ -782,12 +814,21 @@ async function generateAIRecommendations(data) {
                         amount,
                         percentage: totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : 0
                     })),
+                incomeBreakdown: Object.entries(data.incomeBySource || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([source, amount]) => ({
+                        source,
+                        amount,
+                        percentage: totalIncome > 0 ? ((amount / totalIncome) * 100).toFixed(1) : 0
+                    })),
+                goals: goalsContext,
                 dateRange: { from: data.from, to: data.to, label: document.getElementById('currentPeriodLabel')?.textContent }
             }
         };
 
         const response = await aiAPI.chat(
-            'Analyze my financial report and give me 3 specific recommendations.',
+            'Analyze my complete financial report including my goals and give me specific, personalized recommendations.',
             [],
             JSON.stringify(context)
         );
@@ -805,9 +846,23 @@ async function generateAIRecommendations(data) {
                 ${formattedRecommendations}
             </div>
         `;
+
+        // Cache for offline use
+        localStorage.setItem('cachedAIRecommendations', formattedRecommendations);
     } catch (error) {
         console.error('Error generating recommendations:', error);
-        container.innerHTML = '<div style="padding: 16px;">Unable to generate recommendations.</div>';
+        // Try cached version on error
+        const cachedRecs = localStorage.getItem('cachedAIRecommendations');
+        if (cachedRecs) {
+            container.innerHTML = `
+                <div style="padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md); line-height: 1.8; color: var(--text-primary);">
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">⚠️ Could not refresh — showing last saved recommendations</div>
+                    ${cachedRecs}
+                </div>
+            `;
+        } else {
+            container.innerHTML = '<div style="padding: 16px;">Unable to generate recommendations. Please try again later.</div>';
+        }
     }
 }
 
@@ -849,13 +904,13 @@ window.exportCSV = async function () {
         csv += `${inc.date},Income,${inc.source},,${inc.amount},${inc.currency}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
     a.download = `spendwise-report-${currentPeriod}-${reportData.from}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    showNotification('CSV exported successfully', 'success');
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showNotification('CSV exported successfully', 'success');
 };
 
 function showNotification(message, type = 'info') {

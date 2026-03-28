@@ -1,37 +1,39 @@
-const CACHE_VERSION = 'v1.2.0';
+const CACHE_VERSION = 'v1.3.0';
 const STATIC_CACHE_NAME = `spendwise-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `spendwise-dynamic-${CACHE_VERSION}`;
 
 // Assets to cache immediately on install
+// Paths are relative to the frontend root (Vercel serves from /)
 const STATIC_ASSETS = [
-  '/frontend/index.html',
-  '/frontend/dashboard.html',
-  '/frontend/expenses.html',
-  '/frontend/income.html',
-  '/frontend/goals.html',
-  '/frontend/reports.html',
-  '/frontend/settings.html',
-  '/frontend/login.html',
-  '/frontend/signup.html',
-  '/frontend/notifications.html',
-  '/frontend/css/style.css',
-  '/frontend/manifest.json',
-  '/frontend/icons/icon-192x192.svg',
-  '/frontend/icons/icon-512x512.svg',
+  '/',
+  '/index.html',
+  '/dashboard.html',
+  '/expenses.html',
+  '/income.html',
+  '/goals.html',
+  '/reports.html',
+  '/settings.html',
+  '/login.html',
+  '/signup.html',
+  '/notifications.html',
+  '/css/style.css',
+  '/manifest.json',
+  '/icons/icon-192x192.svg',
+  '/icons/icon-512x512.svg',
   // Core JavaScript files
-  '/frontend/js/api.js',
-  '/frontend/js/currency.js',
-  '/frontend/js/navigation.js',
-  '/frontend/js/offline.js',
-  '/frontend/js/theme.js',
-  '/frontend/js/icons.js',
-  '/frontend/js/dashboard.js',
-  '/frontend/js/expenses.js',
-  '/frontend/js/income.js',
-  '/frontend/js/goals.js',
-  '/frontend/js/reports.js',
-  '/frontend/js/settings.js',
-  '/frontend/js/notifications.js'
+  '/js/api.js',
+  '/js/currency.js',
+  '/js/navigation.js',
+  '/js/offline.js',
+  '/js/theme.js',
+  '/js/icons.js',
+  '/js/dashboard.js',
+  '/js/expenses.js',
+  '/js/income.js',
+  '/js/goals.js',
+  '/js/reports.js',
+  '/js/settings.js',
+  '/js/notifications.js'
 ];
 
 // Install event - cache static assets
@@ -42,7 +44,12 @@ self.addEventListener('install', (event) => {
     caches.open(STATIC_CACHE_NAME)
       .then((cache) => {
         console.log('Service Worker: Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
+        // Use addAll with individual error handling so one failure doesn't break all caching
+        return Promise.allSettled(
+          STATIC_ASSETS.map(url => cache.add(url).catch(err => {
+            console.warn(`Service Worker: Failed to cache ${url}:`, err);
+          }))
+        );
       })
       .then(() => {
         console.log('Service Worker: Static assets cached');
@@ -77,13 +84,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - implement Stale-While-Revalidate strategy
+// Fetch event - implement caching strategy
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
   
-  // Skip non-GET requests and external requests
-  if (request.method !== 'GET' || url.origin !== self.location.origin) {
+  // Skip non-GET requests
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  // Skip cross-origin requests entirely (API calls to Railway, CDN scripts, etc.)
+  // Let the browser handle them normally
+  if (url.origin !== self.location.origin) {
     return;
   }
 
@@ -94,11 +107,10 @@ self.addEventListener('fetch', (event) => {
   } else if (shouldCache(request)) {
     // Handle static assets
     event.respondWith(handleStaticAssetRequest(request));
-  } else {
-    // Handle API requests - just pass through
-    event.respondWith(fetch(request));
   }
+  // For anything else same-origin that shouldn't be cached, let browser handle it
 });
+
 
 // Handle document (HTML) requests
 async function handleDocumentRequest(request) {
@@ -119,7 +131,7 @@ async function handleDocumentRequest(request) {
     }
 
     // Network failed, try to return cached index.html for navigation
-    const indexResponse = await caches.match('/frontend/index.html');
+    const indexResponse = await caches.match('/index.html');
     return indexResponse || new Response('Offline - No cached version available', { status: 503 });
   } catch (error) {
     console.error('Error handling document request:', error);

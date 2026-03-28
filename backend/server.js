@@ -20,11 +20,27 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+const allowedOrigins = [
+  'https://track-finances-pwa-production.up.railway.app',
+  'https://track-finances-pwa.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002'
+];
+
 app.use(cors({
-  origin: ['https://track-finances-pwa-production.up.railway.app', 'https://track-finances-pwa.vercel.app', 'http://localhost:3000'],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, server-to-server, etc.)
+    if (!origin) return callback(null, true);
+    // Allow exact matches
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow any Vercel preview deployment
+    if (origin.match(/^https:\/\/track-finances-pwa.*\.vercel\.app$/)) return callback(null, true);
+    // Reject others
+    callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  
   credentials: true
 }));
 
