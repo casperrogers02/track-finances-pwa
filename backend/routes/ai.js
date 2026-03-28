@@ -13,7 +13,7 @@ let model = null;
 if (apiKey) {
   genAI = new GoogleGenerativeAI(apiKey);
   // Use supported “latest” model names (older gemini-1.5-flash is retired in many setups)
-  model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+  model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 }
 
 // Get chat history
@@ -74,10 +74,26 @@ router.post('/chat', authenticate, async (req, res) => {
       return 'user';
     };
 
-    const dbHistory = historyResult.rows.reverse().map(row => ({
-      role: normalizeRole(row.role),
-      parts: [{ text: row.content }]
-    }));
+    let dbHistory = [];
+    // If context is provided, we skip history to prevent token bloat and confusion
+    // Context is used for one-off analyses like the Reports page AI recommendation
+    if (!context) {
+      const rawHistory = historyResult.rows.reverse();
+      let nextExpectedRole = 'user';
+      for (const row of rawHistory) {
+        const normRole = normalizeRole(row.role);
+        // Only add if it matches the expected alternating sequence (user, model, user, model)
+        if (normRole === nextExpectedRole && row.content) {
+          dbHistory.push({ role: normRole, parts: [{ text: row.content }] });
+          nextExpectedRole = normRole === 'user' ? 'model' : 'user';
+        }
+      }
+      
+      // History for Gemini must end with a 'model' role because the next input will be a 'user' message
+      if (dbHistory.length > 0 && dbHistory[dbHistory.length - 1].role === 'user') {
+        dbHistory.pop();
+      }
+    }
 
     // 2. Save User Message to DB
     await pool.query(

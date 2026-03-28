@@ -232,6 +232,7 @@ window.openFilePicker = openFilePicker;
 
 // Load profile picture
 async function loadProfilePicture(user) {
+    const API_BASE_URL = window.API_BASE_URL || 'https://track-finances-pwa-production.up.railway.app/api';
     const avatars = document.querySelectorAll('#profileAvatar, #settingsProfileAvatar'); // Added settingsProfileAvatar
     if (avatars.length === 0) return;
 
@@ -294,6 +295,7 @@ async function loadProfilePicture(user) {
 
 // Upload profile picture
 async function uploadProfilePicture(file) {
+    const API_BASE_URL = window.API_BASE_URL || 'https://track-finances-pwa-production.up.railway.app/api';
     if (file.size > 5 * 1024 * 1024) { // Updated to 5MB to match backend
         showNotification('Image size must be less than 5MB', 'error');
         return;
