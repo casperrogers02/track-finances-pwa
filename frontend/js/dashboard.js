@@ -281,6 +281,8 @@ async function loadDashboardData() {
 
         try {
             // Goals are usually long-term, so we normally fetch all active goals.
+            // If the API supports filtering by date range (e.g. created/due within period), usage would depend on requirements.
+            // For now, fetch all goals to show "Active Goals" count accurately.
             goalsRes = await goalsAPIFn.getAll();
             // Cache the data for offline use
             if (navigator.onLine && goalsRes.goals && goalsRes.goals.length > 0) {

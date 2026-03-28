@@ -145,7 +145,7 @@ async function loadCategories() {
         console.error('Error loading categories:', error);
         
         // If offline, try to load cached categories
-        if (!navigator.onLine || error.message.includes('offline')) {
+        if (!navigator.onLine || error.message === 'offline' || error.message.includes('offline')) {
             const cachedData = localStorage.getItem('cachedCategories');
             if (cachedData) {
                 categories = JSON.parse(cachedData);
@@ -208,7 +208,7 @@ async function loadExpenses() {
         console.error('Error loading expenses:', error);
         
         // If offline, try to load cached data
-        if (!navigator.onLine || error.message.includes('offline')) {
+        if (!navigator.onLine || error.message === 'offline' || error.message.includes('offline')) {
             const cachedData = localStorage.getItem('cachedExpenses');
             if (cachedData) {
                 allExpenses = JSON.parse(cachedData);

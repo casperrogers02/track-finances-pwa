@@ -1,6 +1,6 @@
-const CACHE_NAME = 'spendwise-v1';
-const STATIC_CACHE_NAME = 'spendwise-static-v1';
-const DYNAMIC_CACHE_NAME = 'spendwise-dynamic-v1';
+const CACHE_VERSION = 'v1.2.0';
+const STATIC_CACHE_NAME = `spendwise-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE_NAME = `spendwise-dynamic-${CACHE_VERSION}`;
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -62,14 +62,12 @@ self.addEventListener('activate', (event) => {
     caches.keys()
       .then((cacheNames) => {
         return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE_NAME && 
-                cacheName !== DYNAMIC_CACHE_NAME && 
-                cacheName !== CACHE_NAME) {
-              console.log('Service Worker: Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
+          cacheNames
+            .filter((name) => name !== STATIC_CACHE_NAME && name !== DYNAMIC_CACHE_NAME)
+            .map((name) => {
+              console.log('Service Worker: Deleting old cache:', name);
+              return caches.delete(name);
+            })
         );
       })
       .then(() => {
@@ -81,164 +79,89 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - implement Stale-While-Revalidate strategy
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
+  const request = event.request;
   const url = new URL(request.url);
   
-  // Handle API requests differently
-  if (url.pathname.includes('/api/')) {
-    // For API requests, try network first, fallback to offline queue
-    if (request.method === 'GET') {
-      event.respondWith(
-        fetch(request)
-          .then((networkResponse) => {
-            if (networkResponse.ok) {
-              // Cache successful GET requests
-              return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
-                cache.put(request, networkResponse.clone());
-                return networkResponse;
-              });
-            }
-            throw new Error('Network response not ok');
-          })
-          .catch(() => {
-            // Return cached version if available
-            return caches.match(request);
-          })
-      );
-    } else {
-      // For POST/PUT/DELETE, just try network (let offline.js handle queuing)
-      event.respondWith(fetch(request));
-    }
+  // Skip non-GET requests and external requests
+  if (request.method !== 'GET' || url.origin !== self.location.origin) {
     return;
   }
-  
-  // Handle navigation requests (HTML pages)
+
+  // Handle different types of requests
   if (request.destination === 'document') {
-    event.respondWith(
-      caches.match(request)
-        .then((cachedResponse) => {
-          if (cachedResponse) {
-            // Return cached version and update in background
-            fetch(request).then((networkResponse) => {
-              if (networkResponse.ok) {
-                return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
-                  cache.put(request, networkResponse.clone());
-                });
-              }
-            }).catch(() => {
-              // Ignore network errors
-            });
-            return cachedResponse;
-          }
-          
-          // Not in cache, try network
-          return fetch(request)
-            .then((networkResponse) => {
-              if (networkResponse.ok) {
-                const responseToCache = networkResponse.clone();
-                return caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
-                  cache.put(request, responseToCache);
-                  return networkResponse;
-                });
-              }
-              
-              // If network fails and it's a navigation request, return cached index.html
-              if (request.destination === 'document') {
-                return caches.match('/frontend/index.html');
-              }
-              
-              return networkResponse;
-            })
-            .catch(() => {
-              // Network failed, return cached index.html for navigation requests
-              if (request.destination === 'document') {
-                return caches.match('/frontend/index.html');
-              }
-              
-              // For other requests, return offline page or error
-              return new Response('Offline - No cached version available', {
-                status: 503,
-                statusText: 'Service Unavailable'
-              });
-            });
-        })
-    );
-    return;
+    // Handle HTML page requests
+    event.respondWith(handleDocumentRequest(request));
+  } else if (shouldCache(request)) {
+    // Handle static assets
+    event.respondWith(handleStaticAssetRequest(request));
+  } else {
+    // Handle API requests - just pass through
+    event.respondWith(fetch(request));
   }
-  
-  // Handle static assets (CSS, JS, images, fonts)
-  if (shouldCache(request)) {
-    event.respondWith(
-      caches.match(request)
-        .then((cachedResponse) => {
-          if (cachedResponse) {
-            // Return cached immediately, update in background
-            fetch(request).then((networkResponse) => {
-              if (networkResponse.ok) {
-                const cacheName = isStaticAsset(request.url) ? STATIC_CACHE_NAME : DYNAMIC_CACHE_NAME;
-                return caches.open(cacheName).then((cache) => {
-                  cache.put(request, networkResponse.clone());
-                });
-              }
-            }).catch(() => {
-              // Ignore network errors
-            });
-            return cachedResponse;
-          }
-          
-          // Not cached, fetch from network
-          return fetch(request)
-            .then((networkResponse) => {
-              if (networkResponse.ok) {
-                const cacheName = isStaticAsset(request.url) ? STATIC_CACHE_NAME : DYNAMIC_CACHE_NAME;
-                const responseToCache = networkResponse.clone();
-                return caches.open(cacheName).then((cache) => {
-                  cache.put(request, responseToCache);
-                  return networkResponse;
-                });
-              }
-              
-              return networkResponse;
-            })
-            .catch(() => {
-              // Network failed for static asset
-              return new Response('Offline - Asset not available', {
-                status: 503,
-                statusText: 'Service Unavailable'
-              });
-            });
-        })
-    );
-  }
-  
-  // For everything else, try network
-  event.respondWith(fetch(request));
 });
 
-// Helper function to determine if asset is static
-function isStaticAsset(url) {
-  const pathname = new URL(url).pathname;
-  return pathname.includes('/css/') || 
-         pathname.includes('/js/') || 
-         pathname.includes('/icons/') || 
-         pathname.includes('/images/') ||
-         pathname.endsWith('.css') ||
-         pathname.endsWith('.js') ||
-         pathname.endsWith('.svg') ||
-         pathname.endsWith('.png') ||
-         pathname.endsWith('.jpg') ||
-         pathname.endsWith('.ico');
+// Handle document (HTML) requests
+async function handleDocumentRequest(request) {
+  try {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      // Return cached version and update in background
+      updateCacheInBackground(request);
+      return cachedResponse;
+    }
+
+    // Try network
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(DYNAMIC_CACHE_NAME);
+      cache.put(request, networkResponse.clone());
+      return networkResponse;
+    }
+
+    // Network failed, try to return cached index.html for navigation
+    const indexResponse = await caches.match('/frontend/index.html');
+    return indexResponse || new Response('Offline - No cached version available', { status: 503 });
+  } catch (error) {
+    console.error('Error handling document request:', error);
+    return new Response('Offline - No cached version available', { status: 503 });
+  }
 }
 
-// Background fetch and update for HTML files
-function fetchAndUpdate(request) {
+// Handle static asset requests
+async function handleStaticAssetRequest(request) {
+  try {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      // Return cached version and update in background
+      updateCacheInBackground(request);
+      return cachedResponse;
+    }
+
+    // Try network
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(STATIC_CACHE_NAME);
+      cache.put(request, networkResponse.clone());
+      return networkResponse;
+    }
+
+    // Network failed, return cached version if available
+    return cachedResponse || new Response('Offline - Asset not available', { status: 503 });
+  } catch (error) {
+    console.error('Error handling static asset request:', error);
+    return new Response('Offline - Asset not available', { status: 503 });
+  }
+}
+
+// Update cache in background
+function updateCacheInBackground(request) {
   fetch(request)
     .then((response) => {
       if (response.ok) {
-        return caches.open(DYNAMIC_CACHE_NAME)
-          .then((cache) => {
-            cache.put(request, response.clone());
-          });
+        const cacheName = isStaticAsset(request.url) ? STATIC_CACHE_NAME : DYNAMIC_CACHE_NAME;
+        return caches.open(cacheName).then((cache) => {
+          cache.put(request, response);
+        });
       }
     })
     .catch(() => {
@@ -246,7 +169,7 @@ function fetchAndUpdate(request) {
     });
 }
 
-// Determine if request should be cached
+// Helper function to determine if asset should be cached
 function shouldCache(request) {
   const url = new URL(request.url);
   

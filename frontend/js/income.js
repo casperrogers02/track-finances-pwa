@@ -146,33 +146,23 @@ async function loadSources() {
     } catch (error) {
         console.error('Error loading sources:', error);
         
-        // If offline, try to load cached sources
-        if (!navigator.onLine || error.message.includes('offline')) {
-            const cachedData = localStorage.getItem('cachedIncomeSources');
+        // If offline, try to load cached data
+        if (!navigator.onLine || error.message === 'offline' || error.message.includes('offline')) {
+            const cachedData = localStorage.getItem('cachedSources');
             if (cachedData) {
-                sources = JSON.parse(cachedData);
+                const sources = JSON.parse(cachedData);
                 
                 const select = document.getElementById('incomeSource');
-                const filterSelect = document.getElementById('sourceFilter');
-
                 // Clear existing options (keep only the first placeholder option)
                 while (select.options.length > 1) {
                     select.remove(1);
                 }
-                while (filterSelect.options.length > 1) {
-                    filterSelect.remove(1);
-                }
-
+                
                 sources.forEach(src => {
-                    // Create option for income form dropdown
-                    const formOption = document.createElement('option');
-                    formOption.value = src.name;
-                    formOption.textContent = src.name;
-                    select.appendChild(formOption);
-
-                    // Create separate option for filter dropdown
-                    const filterOption = document.createElement('option');
-                    filterOption.value = src.name;
+                    const option = document.createElement('option');
+                    option.value = src.name;
+                    option.textContent = src.name;
+                    select.appendChild(option);
                     filterOption.textContent = src.name;
                     filterSelect.appendChild(filterOption);
                 });
@@ -210,7 +200,7 @@ async function loadIncome() {
         console.error('Error loading income:', error);
         
         // If offline, try to load cached data
-        if (!navigator.onLine || error.message.includes('offline')) {
+        if (!navigator.onLine || error.message === 'offline' || error.message.includes('offline')) {
             const cachedData = localStorage.getItem('cachedIncome');
             if (cachedData) {
                 allIncome = JSON.parse(cachedData);

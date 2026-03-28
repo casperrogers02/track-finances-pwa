@@ -72,14 +72,14 @@ export async function apiRequest(endpoint, options = {}) {
 
     return data;
   } catch (error) {
-    // Check if offline
+    // Check if offline and provide offline-friendly error
     if (!navigator.onLine) {
-      throw new Error('You are offline. Please check your connection.');
+      throw new Error('offline');
     }
 
     // Re-throw with more context if it's a network error
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Network error: Could not reach the server. Please check your connection and ensure the backend is running.');
+      throw new Error('offline');
     }
 
     throw error;
