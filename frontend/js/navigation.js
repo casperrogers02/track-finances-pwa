@@ -23,70 +23,18 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavbarTitleScrollEffect();
 });
 
-// Fallback initialization - run after a short delay if DOMContentLoaded didn't work
-setTimeout(() => {
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    const sidebar = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-    
-    if (hamburgerBtn && sidebar && sidebarOverlay && !hamburgerBtn.hasAttribute('data-initialized')) {
-        console.log('Fallback: Initializing hamburger button...');
-        
-        hamburgerBtn.addEventListener('click', (e) => {
-            console.log('Fallback: Hamburger button clicked!');
-            e.preventDefault();
-            sidebar.classList.toggle('active');
-            sidebarOverlay.classList.toggle('active');
-            console.log('Fallback: Sidebar toggled:', sidebar.classList.contains('active'));
-        });
-        
-        hamburgerBtn.addEventListener('touchstart', (e) => {
-            console.log('Fallback: Hamburger button touched!');
-            e.preventDefault();
-            sidebar.classList.toggle('active');
-            sidebarOverlay.classList.toggle('active');
-        });
-        
-        hamburgerBtn.setAttribute('data-initialized', 'true');
-    }
-}, 1000);
-
 // Initialize navigation
 function initNavigation() {
-    console.log('Initializing navigation...');
-    
     // Hamburger menu toggle
     const hamburgerBtn = document.getElementById('hamburgerBtn');
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-    console.log('Elements found:', {
-        hamburgerBtn: !!hamburgerBtn,
-        sidebar: !!sidebar,
-        sidebarOverlay: !!sidebarOverlay
-    });
-
     if (hamburgerBtn && sidebar && sidebarOverlay) {
-        hamburgerBtn.addEventListener('click', (e) => {
-            console.log('Hamburger button clicked!');
-            e.preventDefault();
-            sidebar.classList.toggle('active');
-            sidebarOverlay.classList.toggle('active');
-            console.log('Sidebar toggled:', sidebar.classList.contains('active'));
-        });
-        
-        // Also add touch event for mobile
-        hamburgerBtn.addEventListener('touchstart', (e) => {
-            console.log('Hamburger button touched!');
-            e.preventDefault();
+        hamburgerBtn.addEventListener('click', () => {
             sidebar.classList.toggle('active');
             sidebarOverlay.classList.toggle('active');
         });
-        
-        // Mark as initialized
-        hamburgerBtn.setAttribute('data-initialized', 'true');
-    } else {
-        console.error('Hamburger menu elements not found');
     }
 
     if (sidebarOverlay) {
