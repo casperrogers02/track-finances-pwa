@@ -9,7 +9,7 @@ let genAI = null;
 
 // Helper to get or initialize the AI model dynamically per request
 function getAIModel() {
-  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.google_api_key || process.env.gemini_api_key;
   
   if (!apiKey) return null;
   
@@ -58,7 +58,7 @@ router.post('/chat', authenticate, async (req, res) => {
 
     if (!model) {
       return res.status(500).json({
-        error: 'AI service is not configured. Please set GOOGLE_API_KEY in your backend .env file.',
+        error: 'AI service is not configured. Please ensure the variable is exactly named GOOGLE_API_KEY in your Railway Variables dashboard, and make sure the server has been Redeployed since adding it.',
       });
     }
 

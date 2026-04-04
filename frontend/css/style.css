@@ -1760,12 +1760,15 @@ table tr:last-child td {
     }
 
     /* Full-width layout */
-    body {
+    html, body {
         background: #ffffff !important;
         color: #000000 !important;
         font-size: 12px !important;
         margin: 0 !important;
         padding: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
     }
 
     .app-container {
@@ -1793,13 +1796,13 @@ table tr:last-child td {
     /* Cards should print cleanly */
     .card,
     .stat-card {
-        break-inside: avoid;
-        page-break-inside: avoid;
         border: 1px solid #ccc !important;
         background: #f9f9f9 !important;
         margin-bottom: 16px !important;
         box-shadow: none !important;
         transform: none !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
     }
 
     /* Stats grid */
@@ -1861,7 +1864,7 @@ table tr:last-child td {
 
     /* Page breaks */
     .card {
-        page-break-inside: avoid !important;
+        page-break-inside: auto !important;
     }
 
     /* Ensure all sections visible */
