@@ -5,22 +5,10 @@ const pool = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
-// Configure upload storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir);
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure upload storage - use memory storage so we can convert to base64
+// and store in DB (avoids Railway ephemeral filesystem issues for cross-device sync)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -161,26 +149,86 @@ router.get('/me', authenticate, async (req, res) => {
   }
 });
 
-// Upload profile picture
+// Get profile picture
+router.get('/profile/picture', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT profile_picture FROM users WHERE id = $1', [req.user.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ profile_picture: result.rows[0].profile_picture || null });
+  } catch (error) {
+    console.error('Get profile picture error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Upload profile picture - stores as base64 in DB for cross-device sync
 router.post('/profile/picture', authenticate, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image uploaded' });
     }
 
-    // Path relative to server root
-    const imageUrl = `/uploads/${req.file.filename}`;
+    // Convert buffer to base64 data URL and store in DB
+    // This ensures the picture syncs across all devices via the /me endpoint
+    const mimeType = req.file.mimetype;
+    const base64Data = req.file.buffer.toString('base64');
+    const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-    // Update user in DB
-    await pool.query('UPDATE users SET profile_picture = $1 WHERE id = $2', [imageUrl, req.user.id]);
+    // Update user in DB with base64 image
+    await pool.query('UPDATE users SET profile_picture = $1 WHERE id = $2', [dataUrl, req.user.id]);
 
     res.json({
       message: 'Profile picture updated',
-      profile_picture: imageUrl
+      profile_picture: dataUrl
     });
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Server error during upload' });
+  }
+});
+
+// Update profile (name, phone, email)
+router.put('/profile', authenticate, async (req, res) => {
+  try {
+    const { full_name, phone, email } = req.body;
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (full_name !== undefined) {
+      updates.push(`full_name = $${paramIndex++}`);
+      values.push(full_name);
+    }
+    if (phone !== undefined) {
+      updates.push(`phone = $${paramIndex++}`);
+      values.push(phone);
+    }
+    if (email !== undefined && email !== req.user.email) {
+      // Check if email is already taken
+      const existingUser = await pool.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, req.user.id]);
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({ error: 'Email already in use' });
+      }
+      updates.push(`email = $${paramIndex++}`);
+      values.push(email);
+    }
+
+    if (updates.length === 0) {
+      return res.json({ message: 'No changes to update', user: req.user });
+    }
+
+    values.push(req.user.id);
+    const result = await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING id, full_name, email, phone, preferred_currency, profile_picture`,
+      values
+    );
+
+    res.json({ message: 'Profile updated successfully', user: result.rows[0] });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

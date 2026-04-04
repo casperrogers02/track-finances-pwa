@@ -314,6 +314,9 @@ async function fetchAndRenderReport(from, to) {
             currency: currentCurrency
         };
 
+        // Store globally so the AI retry button can access it
+        window._lastReportData = reportData;
+
         renderReport(reportData);
     } catch (error) {
         console.error('Error fetching report data:', error);
@@ -751,22 +754,6 @@ async function generateAIRecommendations(data) {
     const container = document.getElementById('aiRecommendations');
     if (!container) return;
 
-    // If offline, show cached recommendations or a message
-    if (!navigator.onLine) {
-        const cachedRecs = localStorage.getItem('cachedAIRecommendations');
-        if (cachedRecs) {
-            container.innerHTML = `
-                <div style="padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md); line-height: 1.8; color: var(--text-primary);">
-                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">📡 Offline — showing last saved recommendations</div>
-                    ${cachedRecs}
-                </div>
-            `;
-        } else {
-            container.innerHTML = '<div style="padding: 16px; color: var(--text-secondary);">AI recommendations require an internet connection. Connect online to get personalized advice.</div>';
-        }
-        return;
-    }
-
     // Spinner
     container.innerHTML = '<div class="loading">Generating recommendations...</div>';
 
@@ -782,24 +769,8 @@ async function generateAIRecommendations(data) {
         const totalExpenses = data.summary.totalExpenses;
         const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0;
 
-        // Build goals context for AI
-        const goalsContext = goals.map(g => ({
-            title: g.title || g.name,
-            target: parseFloat(g.target_amount) || 0,
-            progress: parseFloat(g.progress) || 0,
-            percentage: g.target_amount > 0 ? ((parseFloat(g.progress || 0) / parseFloat(g.target_amount)) * 100).toFixed(1) : 0,
-            deadline: g.deadline || g.target_date || 'No deadline set',
-            currency: g.currency || currentCurrency
-        }));
-
         const context = {
-            system_instructions: `You are a savvy personal finance advisor for a Ugandan user using SpendWise. Analyze their complete financial picture below — income, expenses, savings, AND goals. Give 3-4 actionable, specific tips that cover:
-1. How to improve their savings rate or cut overspending in specific categories
-2. Progress toward their financial goals and what they can do to reach them faster
-3. Local investment or business opportunities (Unit Trusts, SACCOs, Bonds, side businesses) based on their surplus or interests
-4. Any warnings if they're overspending relative to income
-
-Be encouraging but direct. Reference their actual numbers. If they have goals, comment on each goal's progress.`,
+            system_instructions: "You are a savvy personal finance advisor for a Ugandan user. Analyze their financial summary below. identifying patterns. Give 3 actionable, specific tips to improve their savings rate and financial health. Suggest local investment options (like Unit Trusts, SACCOs, Bonds) if they have a surplus, or cost-cutting measures for specific categories if they are overspending. Be encouraging but direct.",
             user_financial_data: {
                 currency: currentCurrency,
                 totalIncome,
@@ -814,21 +785,12 @@ Be encouraging but direct. Reference their actual numbers. If they have goals, c
                         amount,
                         percentage: totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : 0
                     })),
-                incomeBreakdown: Object.entries(data.incomeBySource || {})
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([source, amount]) => ({
-                        source,
-                        amount,
-                        percentage: totalIncome > 0 ? ((amount / totalIncome) * 100).toFixed(1) : 0
-                    })),
-                goals: goalsContext,
                 dateRange: { from: data.from, to: data.to, label: document.getElementById('currentPeriodLabel')?.textContent }
             }
         };
 
         const response = await aiAPI.chat(
-            'Analyze my complete financial report including my goals and give me specific, personalized recommendations.',
+            'Analyze my financial report and give me 3 specific recommendations.',
             [],
             JSON.stringify(context)
         );
@@ -846,25 +808,22 @@ Be encouraging but direct. Reference their actual numbers. If they have goals, c
                 ${formattedRecommendations}
             </div>
         `;
-
-        // Cache for offline use
-        localStorage.setItem('cachedAIRecommendations', formattedRecommendations);
     } catch (error) {
-        console.error('Error generating recommendations:', error);
-        // Try cached version on error
-        const cachedRecs = localStorage.getItem('cachedAIRecommendations');
-        if (cachedRecs) {
-            container.innerHTML = `
-                <div style="padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md); line-height: 1.8; color: var(--text-primary);">
-                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">⚠️ Could not refresh — showing last saved recommendations</div>
-                    ${cachedRecs}
-                </div>
-            `;
-        } else {
-            container.innerHTML = '<div style="padding: 16px;">Unable to generate recommendations. Please try again later.</div>';
-        }
+        console.error('Error generating AI recommendations:', error);
+        container.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: var(--text-secondary);">
+                <p style="margin-bottom: 12px;">⚠️ Unable to load AI recommendations right now.</p>
+                <p style="font-size: 12px; margin-bottom: 16px; color: var(--text-tertiary);">${error.message ? error.message.substring(0, 120) : 'Connection error'}</p>
+                <button onclick="generateAIRecommendations(window._lastReportData)" 
+                    style="padding: 8px 20px; background: var(--accent-teal); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                    🔄 Try Again
+                </button>
+            </div>`;
     }
 }
+
+// Expose for retry button
+window.generateAIRecommendations = generateAIRecommendations;
 
 // Helper functions for date calculations
 function getWeekNumber(date) {
@@ -888,9 +847,91 @@ function getDateFromWeek(year, week) {
 }
 
 // Export functions...
+// Export PDF - mobile-friendly using html2canvas + jsPDF
 window.exportPDF = async function () {
-    if (!reportData) return;
-    window.print();
+    if (!reportData) {
+        showNotification('No report data to export. Please wait for the report to load.', 'warning');
+        return;
+    }
+
+    showNotification('Preparing PDF, please wait...', 'info');
+
+    // Check if libraries are loaded
+    if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
+        // Fallback to window.print() if libraries not available
+        showNotification('Using system print dialog...', 'info');
+        window.print();
+        return;
+    }
+
+    try {
+        // Target the main content area only
+        const contentWrapper = document.querySelector('.content-wrapper');
+        if (!contentWrapper) {
+            window.print();
+            return;
+        }
+
+        // Temporarily hide non-printable elements during capture
+        const hideForPrint = document.querySelectorAll('.topbar, .sidebar, #hamburgerBtn, .sidebar-overlay, [onclick="exportPDF()"], [onclick="exportCSV()"], [onclick="window.print()"], .period-selector, .btn-icon');
+        const originalDisplays = [];
+        hideForPrint.forEach(el => {
+            originalDisplays.push(el.style.display);
+            el.style.display = 'none';
+        });
+
+        const canvas = await html2canvas(contentWrapper, {
+            scale: 1.5,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : '#0d1117',
+            logging: false,
+            windowWidth: contentWrapper.scrollWidth,
+            windowHeight: contentWrapper.scrollHeight
+        });
+
+        // Restore hidden elements
+        hideForPrint.forEach((el, i) => {
+            el.style.display = originalDisplays[i];
+        });
+
+        const { jsPDF } = jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        const imgWidth = pageWidth - (margin * 2);
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const imgData = canvas.toDataURL('image/png');
+
+        let yPosition = margin;
+        let heightLeft = imgHeight;
+        let pageNum = 0;
+
+        // Add pages as needed
+        while (heightLeft > 0) {
+            if (pageNum > 0) {
+                pdf.addPage();
+            }
+            const yOffset = -pageNum * (pageHeight - margin * 2);
+            pdf.addImage(imgData, 'PNG', margin, yPosition + yOffset, imgWidth, imgHeight);
+            heightLeft -= (pageHeight - margin * 2);
+            pageNum++;
+        }
+
+        const dateStr = reportData.from ? reportData.from.substring(0, 7) : new Date().toISOString().substring(0, 7);
+        pdf.save(`SpendWise-Report-${dateStr}.pdf`);
+        showNotification('PDF saved successfully!', 'success');
+    } catch (error) {
+        console.error('PDF export error:', error);
+        showNotification('PDF generation failed. Trying print dialog...', 'warning');
+        window.print();
+    }
 };
 
 window.exportCSV = async function () {

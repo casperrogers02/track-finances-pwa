@@ -12,8 +12,12 @@ let model = null;
 
 if (apiKey) {
   genAI = new GoogleGenerativeAI(apiKey);
-  // Use supported “latest” model names (older gemini-1.5-flash is retired in many setups)
-  model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+  // Use GEMINI_MODEL env var to override, default to gemini-1.5-flash (stable)
+  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  model = genAI.getGenerativeModel({ model: modelName });
+  console.log(`AI model configured: ${modelName}`);
+} else {
+  console.warn('No GOOGLE_API_KEY or GEMINI_API_KEY found - AI features disabled');
 }
 
 // Get chat history

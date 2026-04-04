@@ -1,14 +1,14 @@
 // Settings page functionality
 document.addEventListener('DOMContentLoaded', async () => {
     // Check authentication
-    if (!getToken()) {
-        window.location.href = 'login.html';
-        return;
-    }
+  if (!getToken()) {
+    window.location.href = 'login.html';
+    return;
+  }
 
     // Load user info
-    const user = getUser();
-    if (user) {
+  const user = getUser();
+  if (user) {
         // Populate profile fields
         const nameInput = document.getElementById('profileName');
         const emailInput = document.getElementById('profileEmail');
@@ -230,67 +230,41 @@ function openFilePicker() {
 window.openCameraCapture = openCameraCapture;
 window.openFilePicker = openFilePicker;
 
-// Load profile picture
+// Load profile picture - sync from server on load for cross-device syncing
 async function loadProfilePicture(user) {
-    const avatars = document.querySelectorAll('#profileAvatar, #settingsProfileAvatar'); // Added settingsProfileAvatar
+    const avatars = document.querySelectorAll('#profileAvatar, #settingsProfileAvatar, .profile-avatar');
     if (avatars.length === 0) return;
 
-    // First, try to get the latest profile picture from server
+    // Try to get the latest profile picture from server (/me returns profile_picture from DB)
     try {
         if (navigator.onLine && getToken()) {
-            const response = await fetch(`${API_BASE_URL}/profile/picture`, {
-                headers: {
-                    'Authorization': `Bearer ${getToken()}`
-                }
+            const response = await fetch(`${API_BASE_URL}/me`, {
+                headers: { 'Authorization': `Bearer ${getToken()}` }
             });
-
             if (response.ok) {
                 const data = await response.json();
-                if (data.profile_picture) {
-                    // Update user object with server URL
+                const serverPic = data.user?.profile_picture;
+                if (serverPic) {
+                    // Update local cache and user object
                     if (user) {
-                        user.profile_picture = data.profile_picture;
+                        user.profile_picture = serverPic;
                         setUser(user);
                     }
-
-                    let fullUrl = data.profile_picture;
-                    if (fullUrl.startsWith('/uploads')) {
-                        const url = new URL(API_BASE_URL);
-                        fullUrl = `${url.origin}${fullUrl}`;
-                    }
-
-                    // Save to localStorage for offline fallback
-                    localStorage.setItem('profilePicture', fullUrl);
-                    updateAllProfileAvatars(fullUrl);
+                    localStorage.setItem('profilePicture', serverPic);
+                    updateAllProfileAvatars(serverPic);
                     return;
                 }
             }
         }
     } catch (error) {
-        console.log('Could not fetch latest profile picture from server, using cached version');
+        console.log('Could not fetch latest profile from server, using cached version');
     }
 
-    // Fallback to cached version
-    let pictureUrl = user?.profile_picture || localStorage.getItem('profilePicture');
-
-    // Handle relative paths from backend
-    if (pictureUrl && pictureUrl.startsWith('/uploads')) {
-        try {
-            const url = new URL(API_BASE_URL);
-            pictureUrl = `${url.origin}${pictureUrl}`;
-        } catch (e) {
-            console.warn('Could not construct absolute URL for profile picture:', e);
-        }
-    }
-
-    // If we have a picture URL, update all avatars
-    if (pictureUrl) {
-        updateAllProfileAvatars(pictureUrl);
-    } else {
-        // Set default avatar
-        updateAllProfileAvatars(null);
-    }
+    // Fallback to cached version (works offline too)
+    const pictureUrl = user?.profile_picture || localStorage.getItem('profilePicture');
+    updateAllProfileAvatars(pictureUrl || null);
 }
+
 
 // Upload profile picture
 async function uploadProfilePicture(file) {
@@ -325,26 +299,15 @@ async function uploadProfilePicture(file) {
 
             if (response.ok) {
                 const data = await response.json();
-                // Update user object with server URL if provided
+                // Update user object and cache with the returned profile picture (base64 data URL)
                 if (user && data.profile_picture) {
                     user.profile_picture = data.profile_picture;
                     setUser(user);
-
-                    // We don't save full URL to localStorage, just the path (or what server returns)
-                    // But for display we need full URL.
-                    // Let loadProfilePicture handle the URL construction next time.
-                    // For now, updateAllProfileAvatars needs the FULL URL.
-
-                    let fullUrl = data.profile_picture;
-                    if (fullUrl.startsWith('/uploads')) {
-                        const url = new URL(API_BASE_URL);
-                        fullUrl = `${url.origin}${fullUrl}`;
-                    }
-
-                    localStorage.setItem('profilePicture', fullUrl); // Save full URL for offline fallback
-                    updateAllProfileAvatars(fullUrl);
+                    localStorage.setItem('profilePicture', data.profile_picture);
+                    updateAllProfileAvatars(data.profile_picture);
                 }
                 showNotification('Profile picture updated successfully', 'success');
+
             } else {
                 throw new Error('Upload failed');
             }
@@ -373,8 +336,8 @@ function updateAllProfileAvatars(imageUrl) {
             avatar.style.backgroundSize = 'cover';
             avatar.style.backgroundPosition = 'center';
             avatar.textContent = '';
-        }
-    });
+    }
+  });
 }
 
 // Save profile
@@ -471,12 +434,12 @@ async function saveProfile() {
                 }
 
                 // Update locally anyway for offline support
-                const user = getUser();
-                if (user) {
-                    user.full_name = full_name || user.full_name;
-                    user.phone = phone || user.phone;
+    const user = getUser();
+    if (user) {
+      user.full_name = full_name || user.full_name;
+      user.phone = phone || user.phone;
                     user.email = email || user.email;
-                    setUser(user);
+      setUser(user);
                     sessionStorage.setItem('user', JSON.stringify(user));
                 }
 

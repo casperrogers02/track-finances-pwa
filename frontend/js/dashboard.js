@@ -1029,7 +1029,7 @@ async function loadAiMessages() {
     }
 }
 
-// Save AI messages to localStorage
+// Save AI messages to localStorage for offline access
 function saveAiMessages() {
     try {
         localStorage.setItem('aiMessages', JSON.stringify(aiMessages));
@@ -1038,8 +1038,9 @@ function saveAiMessages() {
     }
 }
 
-// Expose AI send function globally
+// Expose AI functions globally
 window.sendAiMessage = sendAiMessage;
+window.clearAiChat = clearAiChat;
 
 // Render recent transactions
 function renderRecentTransactions() {
@@ -1729,11 +1730,15 @@ async function loadNotifications() {
 // Clear AI chat (wrapper for the HTML Clear button)
 function clearAiChat() {
     aiMessages = [];
+    // Also clear localStorage cache so it doesn't repopulate on page reload
+    localStorage.removeItem('aiMessages');
     const container = document.getElementById('aiChatMessages');
     if (container) {
         container.innerHTML = '';
-        addAiMessage('assistant', 'Chat cleared! How can I help you with your finances today?');
+        addAiMessage('assistant', 'Chat cleared! How can I help you with your finances today? 😊');
         renderAiMessages();
     }
+    saveAiMessages();
 }
 
+window.clearAiChat = clearAiChat;

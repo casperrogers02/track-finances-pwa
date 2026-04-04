@@ -343,36 +343,40 @@ function logout() {
 
 window.logout = logout;
 
-// Sync profile picture from server
+// Sync profile picture from server using /me endpoint (which returns profile_picture from DB)
 async function syncProfilePictureFromServer() {
     try {
         const API_BASE_URL = window.API_BASE_URL || 'https://track-finances-pwa-production.up.railway.app/api';
-        const response = await fetch(`${API_BASE_URL}/profile/picture`, {
-            headers: {
-                'Authorization': `Bearer ${getToken()}`
-            }
+        const getTokenFn = window.getToken || (typeof getToken !== 'undefined' ? getToken : null);
+        const getUserFn = window.getUser || (typeof getUser !== 'undefined' ? getUser : null);
+        const setUserFn = window.setUser || (typeof setUser !== 'undefined' ? setUser : null);
+        if (!getTokenFn || !getTokenFn()) return;
+
+        const response = await fetch(`${API_BASE_URL}/me`, {
+            headers: { 'Authorization': `Bearer ${getTokenFn()}` }
         });
         
         if (response.ok) {
             const data = await response.json();
-            if (data.profile_picture) {
-                const user = getUser();
-                if (user) {
-                    user.profile_picture = data.profile_picture;
-                    setUser(user);
+            const serverPic = data.user?.profile_picture;
+            if (serverPic) {
+                // Update user object and local cache
+                if (getUserFn && setUserFn) {
+                    const user = getUserFn();
+                    if (user) {
+                        user.profile_picture = serverPic;
+                        // Also sync full_name, email in case they changed on another device
+                        if (data.user.full_name) user.full_name = data.user.full_name;
+                        if (data.user.email) user.email = data.user.email;
+                        if (data.user.preferred_currency) user.preferred_currency = data.user.preferred_currency;
+                        setUserFn(user);
+                    }
                 }
-                
-                let fullUrl = data.profile_picture;
-                if (fullUrl.startsWith('/uploads')) {
-                    const url = new URL(API_BASE_URL);
-                    fullUrl = `${url.origin}${fullUrl}`;
-                }
-                
-                localStorage.setItem('profilePicture', fullUrl);
+                localStorage.setItem('profilePicture', serverPic);
                 updateProfileAvatar();
             }
         }
     } catch (error) {
-        console.log('Could not sync profile picture from server:', error);
+        console.log('Could not sync profile from server:', error);
     }
 }

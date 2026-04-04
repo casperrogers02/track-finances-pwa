@@ -1017,7 +1017,7 @@ table tr:last-child td {
     border-top: 1px solid var(--border-color);
   }
 
-  .sidebar.active {
+  .sidebar.open {
     transform: translateX(0);
   }
 
@@ -1060,20 +1060,20 @@ table tr:last-child td {
 
   /* Refined Backdrop Overlay */
   .sidebar-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 999;
     background: rgba(0, 0, 0, 0.6);
+    /* Slightly darker */
     backdrop-filter: blur(4px);
+    /* Glassmorphism effect */
     transition: opacity 0.3s ease;
+    /* Fade in/out */
     opacity: 0;
     pointer-events: none;
+    /* Click-through when hidden */
+    display: block;
+    /* Always in DOM for transition */
   }
 
-  .sidebar-overlay.active {
+  .sidebar-overlay.show {
     opacity: 1;
     pointer-events: auto;
     /* Catch clicks when shown */
@@ -1716,7 +1716,6 @@ table tr:last-child td {
     /* Optimize scrolling performance */
     .main-content {
         -webkit-overflow-scrolling: touch;
-        overflow-scrolling: touch;
     }
     
     /* Prevent horizontal scroll */
@@ -1730,3 +1729,149 @@ table tr:last-child td {
     }
 }
 
+/* ============================================
+   PRINT / PDF STYLES
+   ============================================ */
+@media print {
+    /* Force color printing */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Hide non-print elements */
+    .sidebar,
+    .sidebar-overlay,
+    .topbar,
+    .hamburger-btn,
+    .period-selector,
+    .btn-outline,
+    .btn-icon,
+    #hamburgerBtn,
+    #notificationIcon,
+    #profileAvatar,
+    .status-indicator,
+    [onclick="exportPDF()"],
+    [onclick="exportCSV()"],
+    [onclick="window.print()"],
+    .offline-banner,
+    .modal {
+        display: none !important;
+    }
+
+    /* Full-width layout */
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-size: 12px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .app-container {
+        display: block !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding-top: 0 !important;
+        width: 100% !important;
+    }
+
+    .content-wrapper {
+        padding: 16px !important;
+        overflow: visible !important;
+    }
+
+    /* Cards should print cleanly */
+    .card,
+    .stat-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #ccc !important;
+        background: #f9f9f9 !important;
+        margin-bottom: 16px !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    /* Stats grid */
+    .stats-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 12px !important;
+    }
+
+    /* Charts - ensure they render */
+    .chart-container {
+        height: 250px !important;
+        break-inside: avoid !important;
+    }
+
+    canvas {
+        max-width: 100% !important;
+    }
+
+    /* Tables */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 11px !important;
+    }
+
+    table th,
+    table td {
+        border: 1px solid #ccc !important;
+        padding: 6px 8px !important;
+        color: #000 !important;
+    }
+
+    table th {
+        background: #f0f0f0 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Charts grid */
+    #reportsChartsGrid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 16px !important;
+    }
+
+    /* Text colors for print */
+    h1, h2, h3, h4, h5, h6,
+    .stat-value, .card-title, p, td, th, span, div {
+        color: #000 !important;
+    }
+
+    .stat-value.positive {
+        color: #16a34a !important;
+    }
+
+    .stat-value.negative {
+        color: #dc2626 !important;
+    }
+
+    /* Page breaks */
+    .card {
+        page-break-inside: avoid !important;
+    }
+
+    /* Ensure all sections visible */
+    #reportSummary,
+    #savingsOverview,
+    #incomePatterns,
+    #transactionsTable,
+    #aiRecommendations,
+    #reportsChartsGrid {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    /* Page title */
+    .page-title {
+        color: #000 !important;
+        font-size: 20px !important;
+    }
+}
