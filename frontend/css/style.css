@@ -1770,17 +1770,24 @@ table tr:last-child td {
 
     .app-container {
         display: block !important;
+        height: auto !important;
+        min-height: 0 !important;
     }
 
     .main-content {
+        display: block !important;
+        height: auto !important;
+        min-height: 0 !important;
         margin-left: 0 !important;
         padding-top: 0 !important;
         width: 100% !important;
     }
 
     .content-wrapper {
+        display: block !important;
         padding: 16px !important;
         overflow: visible !important;
+        height: auto !important;
     }
 
     /* Cards should print cleanly */

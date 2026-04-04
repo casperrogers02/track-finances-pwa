@@ -5,19 +5,19 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const router = express.Router();
 
-// Initialize Gemini
-const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 let genAI = null;
-let model = null;
 
-if (apiKey) {
-  genAI = new GoogleGenerativeAI(apiKey);
-  // Use GEMINI_MODEL env var to override, default to gemini-1.5-flash (stable)
+// Helper to get or initialize the AI model dynamically per request
+function getAIModel() {
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  
+  if (!genAI) {
+    genAI = new GoogleGenerativeAI(apiKey);
+  }
+  
   const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-  model = genAI.getGenerativeModel({ model: modelName });
-  console.log(`AI model configured: ${modelName}`);
-} else {
-  console.warn('No GOOGLE_API_KEY or GEMINI_API_KEY found - AI features disabled');
+  return genAI.getGenerativeModel({ model: modelName });
 }
 
 // Get chat history
@@ -52,6 +52,8 @@ router.post('/chat', authenticate, async (req, res) => {
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
+
+    const model = getAIModel();
 
     if (!model) {
       return res.status(500).json({
