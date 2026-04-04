@@ -857,7 +857,7 @@ window.exportPDF = async function () {
     showNotification('Preparing PDF, please wait...', 'info');
 
     // Check if libraries are loaded
-    if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
+    if (!window.html2canvas || !window.jspdf) {
         // Fallback to window.print() if libraries not available
         showNotification('Using system print dialog...', 'info');
         window.print();
@@ -895,7 +895,7 @@ window.exportPDF = async function () {
             el.style.display = originalDisplays[i];
         });
 
-        const { jsPDF } = jspdf;
+        const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',

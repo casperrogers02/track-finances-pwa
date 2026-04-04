@@ -9,7 +9,9 @@ let genAI = null;
 
 // Helper to get or initialize the AI model dynamically per request
 function getAIModel() {
-  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  const fallbackKey = 'AIzaSyC7lBP94-q_iCdbhfzvzKTIrhyxJZnCy3s';
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || fallbackKey;
+  
   if (!apiKey) return null;
   
   if (!genAI) {
