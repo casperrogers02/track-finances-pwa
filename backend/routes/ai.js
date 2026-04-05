@@ -172,6 +172,22 @@ ${financialDataSummary}
     res.json({ reply });
   } catch (error) {
     console.error('Gemini AI chat error:', error);
+    
+    // Fallback: If we failed to get a response but we are within the chat endpoint, 
+    // we should ensure the bot still "replies" in the database so the user doesn't just see 
+    // their own messages hanging without a response in history.
+    try {
+      if (req.user && req.user.id) {
+        const fallbackText = "I apologize, but I couldn't connect to the AI model right now. Please check your financial tracking and try asking me again soon.";
+        await pool.query(
+          'INSERT INTO ai_chats (user_id, role, content) VALUES ($1, $2, $3)',
+          [req.user.id, 'model', fallbackText]
+        );
+      }
+    } catch (dbError) {
+      console.error('Failed to save fallback AI response to DB:', dbError);
+    }
+
     res.status(500).json({
       error: 'Failed to get AI response. Please try again.',
       details: error && error.message ? error.message : String(error)
