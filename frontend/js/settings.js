@@ -230,41 +230,67 @@ function openFilePicker() {
 window.openCameraCapture = openCameraCapture;
 window.openFilePicker = openFilePicker;
 
-// Load profile picture - sync from server on load for cross-device syncing
+// Load profile picture
 async function loadProfilePicture(user) {
-    const avatars = document.querySelectorAll('#profileAvatar, #settingsProfileAvatar, .profile-avatar');
+    const avatars = document.querySelectorAll('#profileAvatar, #settingsProfileAvatar'); // Added settingsProfileAvatar
     if (avatars.length === 0) return;
 
-    // Try to get the latest profile picture from server (/me returns profile_picture from DB)
+    // First, try to get the latest profile picture from server
     try {
         if (navigator.onLine && getToken()) {
-            const response = await fetch(`${API_BASE_URL}/me`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` }
+            const response = await fetch(`${API_BASE_URL}/profile/picture`, {
+                headers: {
+                    'Authorization': `Bearer ${getToken()}`
+                }
             });
+            
             if (response.ok) {
                 const data = await response.json();
-                const serverPic = data.user?.profile_picture;
-                if (serverPic) {
-                    // Update local cache and user object
+                if (data.profile_picture) {
+                    // Update user object with server URL
                     if (user) {
-                        user.profile_picture = serverPic;
+                        user.profile_picture = data.profile_picture;
                         setUser(user);
                     }
-                    localStorage.setItem('profilePicture', serverPic);
-                    updateAllProfileAvatars(serverPic);
+                    
+                    let fullUrl = data.profile_picture;
+                    if (fullUrl.startsWith('/uploads')) {
+                        const url = new URL(API_BASE_URL);
+                        fullUrl = `${url.origin}${fullUrl}`;
+                    }
+                    
+                    // Save to localStorage for offline fallback
+                    localStorage.setItem('profilePicture', fullUrl);
+                    updateAllProfileAvatars(fullUrl);
                     return;
                 }
             }
         }
     } catch (error) {
-        console.log('Could not fetch latest profile from server, using cached version');
+        console.log('Could not fetch latest profile picture from server, using cached version');
     }
 
-    // Fallback to cached version (works offline too)
-    const pictureUrl = user?.profile_picture || localStorage.getItem('profilePicture');
-    updateAllProfileAvatars(pictureUrl || null);
-}
+    // Fallback to cached version
+    let pictureUrl = user?.profile_picture || localStorage.getItem('profilePicture');
 
+    // Handle relative paths from backend
+    if (pictureUrl && pictureUrl.startsWith('/uploads')) {
+        try {
+            const url = new URL(API_BASE_URL);
+            pictureUrl = `${url.origin}${pictureUrl}`;
+        } catch (e) {
+            console.warn('Could not construct absolute URL for profile picture:', e);
+        }
+    }
+
+    // If we have a picture URL, update all avatars
+    if (pictureUrl) {
+        updateAllProfileAvatars(pictureUrl);
+    } else {
+        // Set default avatar
+        updateAllProfileAvatars(null);
+    }
+}
 
 // Upload profile picture
 async function uploadProfilePicture(file) {
@@ -299,15 +325,26 @@ async function uploadProfilePicture(file) {
 
             if (response.ok) {
                 const data = await response.json();
-                // Update user object and cache with the returned profile picture (base64 data URL)
+                // Update user object with server URL if provided
                 if (user && data.profile_picture) {
                     user.profile_picture = data.profile_picture;
                     setUser(user);
-                    localStorage.setItem('profilePicture', data.profile_picture);
-                    updateAllProfileAvatars(data.profile_picture);
+
+                    // We don't save full URL to localStorage, just the path (or what server returns)
+                    // But for display we need full URL.
+                    // Let loadProfilePicture handle the URL construction next time.
+                    // For now, updateAllProfileAvatars needs the FULL URL.
+
+                    let fullUrl = data.profile_picture;
+                    if (fullUrl.startsWith('/uploads')) {
+                        const url = new URL(API_BASE_URL);
+                        fullUrl = `${url.origin}${fullUrl}`;
+                    }
+
+                    localStorage.setItem('profilePicture', fullUrl); // Save full URL for offline fallback
+                    updateAllProfileAvatars(fullUrl);
                 }
                 showNotification('Profile picture updated successfully', 'success');
-
             } else {
                 throw new Error('Upload failed');
             }

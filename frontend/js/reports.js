@@ -1,3 +1,6 @@
+import { ApiRequestError } from './api.js';
+import { buildHeuristicReportRecommendations } from './ai-fallback.js';
+
 // Reports page functionality
 let currentPeriod = 'months';
 let currentDate = new Date();
@@ -313,9 +316,6 @@ async function fetchAndRenderReport(from, to) {
             to,
             currency: currentCurrency
         };
-
-        // Store globally so the AI retry button can access it
-        window._lastReportData = reportData;
 
         renderReport(reportData);
     } catch (error) {
@@ -769,22 +769,31 @@ async function generateAIRecommendations(data) {
         const totalExpenses = data.summary.totalExpenses;
         const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0;
 
+        const topExpenseCategories = Object.entries(data.expensesByCategory || {})
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([category, amount]) => ({
+                category,
+                amount,
+                percentage: totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : 0
+            }));
+
         const context = {
-            system_instructions: "You are a savvy personal finance advisor for a Ugandan user. Analyze their financial summary below. identifying patterns. Give 3 actionable, specific tips to improve their savings rate and financial health. Suggest local investment options (like Unit Trusts, SACCOs, Bonds) if they have a surplus, or cost-cutting measures for specific categories if they are overspending. Be encouraging but direct.",
+            system_instructions:
+                'You are a savvy personal finance advisor for a Ugandan user. Analyze their financial summary below, identify patterns, and give 3 actionable tips. If they have a surplus, mention Unit Trusts, SACCOs, or bonds where appropriate; if overspending, suggest specific category cuts. Be encouraging but direct.',
             user_financial_data: {
                 currency: currentCurrency,
                 totalIncome,
                 totalExpenses,
                 balance,
                 savingsRate,
-                topExpenseCategories: Object.entries(data.expensesByCategory || {})
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([category, amount]) => ({
-                        category,
-                        amount,
-                        percentage: totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : 0
-                    })),
+                topExpenseCategories,
+                goals: goals.map((g) => ({
+                    title: g.title,
+                    percentage: g.target_amount
+                        ? Math.min(100, ((parseFloat(g.progress) || 0) / parseFloat(g.target_amount)) * 100).toFixed(1)
+                        : 0
+                })),
                 dateRange: { from: data.from, to: data.to, label: document.getElementById('currentPeriodLabel')?.textContent }
             }
         };
@@ -809,21 +818,55 @@ async function generateAIRecommendations(data) {
             </div>
         `;
     } catch (error) {
-        console.error('Error generating AI recommendations:', error);
+        console.error('Error generating recommendations:', error);
+
+        const totalIncome = data.summary.totalIncome;
+        const totalExpenses = data.summary.totalExpenses;
+        const balance = data.summary.balance;
+        const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0;
+        const topExpenseCategories = Object.entries(data.expensesByCategory || {})
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([category, amount]) => ({
+                category,
+                amount,
+                percentage: totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : 0
+            }));
+
+        const heuristic = buildHeuristicReportRecommendations({
+            totalIncome,
+            totalExpenses,
+            balance,
+            savingsRate,
+            topExpenseCategories,
+            currency: currentCurrency
+        });
+
+        const formattedHeuristic = heuristic
+            .split('\n')
+            .filter((line) => line.trim().length > 0)
+            .map((rec) => `<p style="margin-bottom: 12px;">${rec.replace(/</g, '&lt;')}</p>`)
+            .join('');
+
+        let detailHint = '';
+        if (error instanceof ApiRequestError && error.code === 'AI_NOT_CONFIGURED') {
+            detailHint = '<p style="font-size:12px;color:var(--text-secondary);margin-top:12px;">Tip: the server needs GOOGLE_API_KEY or GEMINI_API_KEY set for full AI recommendations.</p>';
+        } else if (error instanceof ApiRequestError && error.details && String(error.details).length < 220) {
+            const safe = String(error.details).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            detailHint = `<p style="font-size:12px;color:var(--text-secondary);margin-top:12px;">${safe}</p>`;
+        } else if (error.message === 'offline' || error.message === 'network_error') {
+            detailHint = '<p style="font-size:12px;color:var(--text-secondary);margin-top:12px;">You appear offline or the network request failed. These tips work without the AI.</p>';
+        }
+
         container.innerHTML = `
-            <div style="padding: 16px; text-align: center; color: var(--text-secondary);">
-                <p style="margin-bottom: 12px;">⚠️ Unable to load AI recommendations right now.</p>
-                <p style="font-size: 12px; margin-bottom: 16px; color: var(--text-tertiary);">${error.message ? error.message.substring(0, 120) : 'Connection error'}</p>
-                <button onclick="generateAIRecommendations(window._lastReportData)" 
-                    style="padding: 8px 20px; background: var(--accent-teal); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                    🔄 Try Again
-                </button>
-            </div>`;
+            <div style="padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius-md); line-height: 1.8; color: var(--text-primary);">
+                <p style="margin-bottom: 12px; font-weight: 600;">Quick recommendations <span style="font-weight:400;color:var(--text-secondary);">(AI unavailable)</span></p>
+                ${formattedHeuristic}
+                ${detailHint}
+            </div>
+        `;
     }
 }
-
-// Expose for retry button
-window.generateAIRecommendations = generateAIRecommendations;
 
 // Helper functions for date calculations
 function getWeekNumber(date) {
@@ -847,91 +890,9 @@ function getDateFromWeek(year, week) {
 }
 
 // Export functions...
-// Export PDF - mobile-friendly using html2canvas + jsPDF
 window.exportPDF = async function () {
-    if (!reportData) {
-        showNotification('No report data to export. Please wait for the report to load.', 'warning');
-        return;
-    }
-
-    showNotification('Preparing PDF, please wait...', 'info');
-
-    // Check if libraries are loaded
-    if (!window.html2canvas || !window.jspdf) {
-        // Fallback to window.print() if libraries not available
-        showNotification('Using system print dialog...', 'info');
-        window.print();
-        return;
-    }
-
-    try {
-        // Target the main content area only
-        const contentWrapper = document.querySelector('.content-wrapper');
-        if (!contentWrapper) {
-            window.print();
-            return;
-        }
-
-        // Temporarily hide non-printable elements during capture
-        const hideForPrint = document.querySelectorAll('.topbar, .sidebar, #hamburgerBtn, .sidebar-overlay, [onclick="exportPDF()"], [onclick="exportCSV()"], [onclick="window.print()"], .period-selector, .btn-icon');
-        const originalDisplays = [];
-        hideForPrint.forEach(el => {
-            originalDisplays.push(el.style.display);
-            el.style.display = 'none';
-        });
-
-        const canvas = await html2canvas(contentWrapper, {
-            scale: 1.5,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : '#0d1117',
-            logging: false,
-            windowWidth: contentWrapper.scrollWidth,
-            windowHeight: contentWrapper.scrollHeight
-        });
-
-        // Restore hidden elements
-        hideForPrint.forEach((el, i) => {
-            el.style.display = originalDisplays[i];
-        });
-
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-        });
-
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const margin = 10;
-        const imgWidth = pageWidth - (margin * 2);
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        const imgData = canvas.toDataURL('image/png');
-
-        let yPosition = margin;
-        let heightLeft = imgHeight;
-        let pageNum = 0;
-
-        // Add pages as needed
-        while (heightLeft > 0) {
-            if (pageNum > 0) {
-                pdf.addPage();
-            }
-            const yOffset = -pageNum * (pageHeight - margin * 2);
-            pdf.addImage(imgData, 'PNG', margin, yPosition + yOffset, imgWidth, imgHeight);
-            heightLeft -= (pageHeight - margin * 2);
-            pageNum++;
-        }
-
-        const dateStr = reportData.from ? reportData.from.substring(0, 7) : new Date().toISOString().substring(0, 7);
-        pdf.save(`SpendWise-Report-${dateStr}.pdf`);
-        showNotification('PDF saved successfully!', 'success');
-    } catch (error) {
-        console.error('PDF export error:', error);
-        showNotification('PDF generation failed. Trying print dialog...', 'warning');
-        window.print();
-    }
+    if (!reportData) return;
+    window.print();
 };
 
 window.exportCSV = async function () {

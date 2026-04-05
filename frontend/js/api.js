@@ -1,4 +1,35 @@
-const API_BASE_URL = `https://track-finances-pwa-production.up.railway.app/api`;
+export const API_BASE_URL = `https://track-finances-pwa-production.up.railway.app/api`;
+
+if (typeof window !== 'undefined') {
+  window.API_BASE_URL = API_BASE_URL;
+}
+
+export class ApiRequestError extends Error {
+  constructor(message, { status, code, details } = {}) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+/** Resolve stored profile_picture (data URL, absolute URL, or /uploads path) for display */
+export function resolveProfilePictureForDisplay(profilePicture, apiBaseUrl = API_BASE_URL) {
+  if (!profilePicture) return null;
+  if (profilePicture.startsWith('data:') || profilePicture.startsWith('http')) {
+    return profilePicture;
+  }
+  if (profilePicture.startsWith('/uploads')) {
+    try {
+      const url = new URL(apiBaseUrl);
+      return `${url.origin}${profilePicture}`;
+    } catch (e) {
+      return profilePicture;
+    }
+  }
+  return profilePicture;
+}
 
 // Get auth token from localStorage
 export function getToken() {
@@ -24,6 +55,19 @@ export function getUser() {
 // Set user info
 export function setUser(user) {
   localStorage.setItem('user', JSON.stringify(user));
+  if (!user) return;
+  if (user.profile_picture) {
+    const url = resolveProfilePictureForDisplay(user.profile_picture);
+    if (url) {
+      try {
+        localStorage.setItem('profilePicture', url);
+      } catch (e) {
+        console.warn('Could not cache profile picture in localStorage:', e);
+      }
+    }
+  } else if (Object.prototype.hasOwnProperty.call(user, 'profile_picture')) {
+    localStorage.removeItem('profilePicture');
+  }
 }
 
 // API request helper with proper error handling
@@ -57,29 +101,43 @@ export async function apiRequest(endpoint, options = {}) {
         // Try to extract error from HTML if possible
         const errorMatch = text.match(/<title>(.*?)<\/title>/i) || text.match(/<h1>(.*?)<\/h1>/i);
         const errorMessage = errorMatch ? errorMatch[1] : `Server returned ${response.status} ${response.statusText}`;
-        throw new Error(errorMessage);
+        throw new ApiRequestError(errorMessage, { status: response.status });
       }
 
-      throw new Error('Server returned non-JSON response. Please check the API endpoint.');
+      throw new ApiRequestError('Server returned non-JSON response. Please check the API endpoint.');
     }
 
     // Parse JSON response
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || data.message || `Request failed with status ${response.status}`);
+      throw new ApiRequestError(
+        data.error || data.message || `Request failed with status ${response.status}`,
+        {
+          status: response.status,
+          code: data.code,
+          details: data.details
+        }
+      );
     }
 
     return data;
   } catch (error) {
-    // Check if offline and provide offline-friendly error
+    if (error instanceof ApiRequestError) {
+      throw error;
+    }
+
     if (!navigator.onLine) {
       throw new Error('offline');
     }
 
-    // Re-throw with more context if it's a network error
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('offline');
+    const isFetchFailure =
+      error &&
+      ((error.name === 'TypeError' && String(error.message).toLowerCase().includes('fetch')) ||
+        error.name === 'NetworkError');
+
+    if (isFetchFailure) {
+      throw new Error('network_error');
     }
 
     throw error;

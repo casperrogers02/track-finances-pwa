@@ -5,20 +5,55 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const router = express.Router();
 
+const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 let genAI = null;
 
-// Helper to get or initialize the AI model dynamically per request
-function getAIModel() {
-  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.google_api_key || process.env.gemini_api_key;
-  
-  if (!apiKey) return null;
-  
-  if (!genAI) {
-    genAI = new GoogleGenerativeAI(apiKey);
+if (apiKey) {
+  genAI = new GoogleGenerativeAI(apiKey);
+}
+
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+const FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+
+function uniqueModelList() {
+  const list = [DEFAULT_MODEL, ...FALLBACK_MODELS];
+  return [...new Set(list)];
+}
+
+async function generateReplyWithModelFallback(genAIInstance, dbHistory, fullPrompt) {
+  const modelsToTry = uniqueModelList();
+  const generationConfig = {
+    maxOutputTokens: 1000,
+    temperature: 0.7,
+  };
+
+  let lastError = null;
+
+  for (const modelName of modelsToTry) {
+    try {
+      const m = genAIInstance.getGenerativeModel({ model: modelName });
+      let chat;
+      try {
+        chat = m.startChat({
+          history: dbHistory,
+          generationConfig,
+        });
+      } catch (err) {
+        console.warn(`Invalid chat history for ${modelName}, starting clean session:`, err.message);
+        chat = m.startChat({ generationConfig });
+      }
+
+      const result = await chat.sendMessage(fullPrompt);
+      const response = await result.response;
+      const reply = response.text();
+      return reply;
+    } catch (err) {
+      lastError = err;
+      console.warn(`Gemini model "${modelName}" failed:`, err.message || err);
+    }
   }
-  
-  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest';
-  return genAI.getGenerativeModel({ model: modelName });
+
+  throw lastError || new Error('All Gemini model attempts failed');
 }
 
 // Get chat history
@@ -54,11 +89,10 @@ router.post('/chat', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    const model = getAIModel();
-
-    if (!model) {
-      return res.status(500).json({
-        error: 'AI service is not configured. Please ensure the variable is exactly named GOOGLE_API_KEY in your Railway Variables dashboard, and make sure the server has been Redeployed since adding it.',
+    if (!genAI) {
+      return res.status(503).json({
+        error: 'AI service is not configured. Set GOOGLE_API_KEY or GEMINI_API_KEY on the server.',
+        code: 'AI_NOT_CONFIGURED',
       });
     }
 
@@ -124,29 +158,13 @@ router.post('/chat', authenticate, async (req, res) => {
       }
     }
 
-    const defaultSystemInstructions = 'You are a helpful, knowledgeable financial advisor for SpendWise in Uganda. Be friendly, practical, and specific to the Ugandan context (e.g. suggesting SACCOs, mobile money, local markets). Use the provided financial data to give personalized advice.';
+    const defaultSystemInstructions =
+      'You are SpendWise\'s friendly AI assistant for users in Uganda. ' +
+      'Answer greetings and small talk briefly and naturally—greet back and offer to help with budgeting, goals, or spending—without dumping financial advice unless the user asks. ' +
+      'When the user asks about their money, report, goals, budget, savings, or investments, use the financial context below and give practical, Uganda-specific guidance (SACCOs, mobile money, local markets, etc.). ' +
+      'Do not invent numbers that are not in the context.';
 
     // Start Chat Session
-    let chat;
-    try {
-      chat = model.startChat({
-        history: dbHistory,
-        generationConfig: {
-          maxOutputTokens: 1000,
-          temperature: 0.7,
-        },
-      });
-    } catch (err) {
-      // Fallback if history is malformed or throws validation errors
-      console.warn('Invalid chat history format, starting clean session limit');
-      chat = model.startChat({
-        generationConfig: {
-          maxOutputTokens: 1000,
-          temperature: 0.7,
-        },
-      });
-    }
-
     // Construct Prompt
     const contextBlock = `
 [SYSTEM INSTRUCTIONS]
@@ -158,10 +176,8 @@ ${financialDataSummary}
 
     const fullPrompt = `${contextBlock}\n\nUser Question: ${message}`;
 
-    // 4. Send Message to Gemini
-    const result = await chat.sendMessage(fullPrompt);
-    const response = await result.response;
-    const reply = response.text();
+    // 4. Send Message to Gemini (with model fallback for production resilience)
+    const reply = await generateReplyWithModelFallback(genAI, dbHistory, fullPrompt);
 
     // 5. Save AI Response to DB
     await pool.query(
@@ -172,24 +188,9 @@ ${financialDataSummary}
     res.json({ reply });
   } catch (error) {
     console.error('Gemini AI chat error:', error);
-    
-    // Fallback: If we failed to get a response but we are within the chat endpoint, 
-    // we should ensure the bot still "replies" in the database so the user doesn't just see 
-    // their own messages hanging without a response in history.
-    try {
-      if (req.user && req.user.id) {
-        const fallbackText = "I apologize, but I couldn't connect to the AI model right now. Please check your financial tracking and try asking me again soon.";
-        await pool.query(
-          'INSERT INTO ai_chats (user_id, role, content) VALUES ($1, $2, $3)',
-          [req.user.id, 'model', fallbackText]
-        );
-      }
-    } catch (dbError) {
-      console.error('Failed to save fallback AI response to DB:', dbError);
-    }
-
     res.status(500).json({
       error: 'Failed to get AI response. Please try again.',
+      code: 'AI_GENERATION_FAILED',
       details: error && error.message ? error.message : String(error)
     });
   }

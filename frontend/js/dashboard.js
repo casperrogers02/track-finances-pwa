@@ -8,8 +8,10 @@ import {
     categoriesAPI,
     aiAPI,
     getUser,
-    setUser
+    setUser,
+    ApiRequestError
 } from './api.js';
+import { isLikelyGreeting, greetingAssistantReply, isFinanceRelatedQuestion } from './ai-fallback.js';
 import { getIcon } from './icons.js';
 
 import { convert, formatCurrency } from './currency.js';
@@ -724,21 +726,13 @@ async function buildFinancialContext() {
 
     // Build a comprehensive context with system instructions
     const contextData = {
-        system_instructions: `You are an intelligent, open-minded financial advisor AI assistant for SpendWise, a personal finance app for users in Uganda. Your role is to:
+        system_instructions: `You are SpendWise's AI assistant for users in Uganda.
 
-1. **Be Conversational & Engaging**: Respond like a knowledgeable friend who genuinely cares about the user's financial success. Use natural, friendly language.
+1. **Greetings & small talk**: Reply briefly and naturally (greet back, be warm). Offer to help with budgets, goals, or spending—do not dump financial advice unless they ask.
 
-2. **Provide Comprehensive, Thoughtful Answers**: Don't just give basic tips. Think deeply about the user's situation, consider multiple angles, and provide detailed, actionable advice.
+2. **Money questions**: When they ask about income, expenses, goals, savings, or investments, use the financial data below. Reference real numbers and goals from the context. Be practical and Uganda-specific (SACCOs, mobile money, local markets).
 
-3. **Be Open-Minded & Creative**: Suggest innovative ideas, explore various options, and help users think outside the box. Consider different strategies for income generation, savings, investments, and expense optimization.
-
-4. **Context-Aware**: Use the provided financial data (income, expenses, goals) to give personalized, relevant advice. Reference specific amounts, goals, and patterns when helpful.
-
-5. **Uganda-Specific**: Provide advice tailored to the Ugandan context - local markets, SACCOs, mobile money, business opportunities, investment options, etc.
-
-6. **Goal-Oriented**: Always connect advice back to the user's financial goals when relevant. Help them understand how specific actions will help achieve their targets.
-
-7. **Encouraging & Supportive**: Be positive and motivating while being realistic. Celebrate progress and provide constructive guidance.`,
+3. **Tone**: Friendly, encouraging, and clear. Don't invent figures that aren't in the data.`,
 
         user_financial_data: {
             currency: preferredCurrency,
@@ -901,8 +895,9 @@ async function sendAiMessage() {
     const text = inputEl.value.trim();
     if (!text) return;
 
-    // Show user message immediately
+    // Show user message immediately and persist (survives refresh mid-request / offline)
     addAiMessage('user', text);
+    saveAiMessages();
     renderAiMessages();
 
     // Disable input and show loading state
@@ -966,10 +961,34 @@ async function sendAiMessage() {
             thinkingIndicator.remove();
         }
 
-        // Use improved fallback that's more conversational
-        const fallback = generateAdviceFromData(text);
-        addAiMessage('assistant', `I apologize, but I'm having trouble connecting to the AI service right now. However, based on your financial data:\n\n${fallback}\n\nPlease try asking again in a moment, and I'll provide a more detailed response.`);
-        saveAiMessages(); // Save fallback response
+        const msg = error.message || '';
+        const code = error instanceof ApiRequestError ? error.code : undefined;
+        const status = error instanceof ApiRequestError ? error.status : undefined;
+        const offline = msg === 'offline' || msg === 'network_error';
+        const notConfigured =
+            code === 'AI_NOT_CONFIGURED' ||
+            status === 503 ||
+            msg.includes('AI service is not configured');
+
+        let assistantText;
+        if (isLikelyGreeting(text)) {
+            assistantText = greetingAssistantReply();
+        } else if (offline) {
+            assistantText =
+                "You're offline or the connection failed. Your message is saved in this chat—when you're back online, send again or ask your question once more for a full AI reply.";
+        } else if (notConfigured) {
+            assistantText =
+                "The AI assistant isn't available yet because the server needs an API key configured. Your conversation is still saved here. Try again after that's set up.";
+        } else if (isFinanceRelatedQuestion(text)) {
+            const fallback = generateAdviceFromData(text);
+            assistantText = `I couldn't get an AI reply just now. Here's quick guidance based on your data:\n\n${fallback}\n\nTry again in a moment for a more detailed answer.`;
+        } else {
+            assistantText =
+                "I couldn't reach the AI service right now. Your message is saved—try again shortly, or ask about your budget and goals when the connection is back.";
+        }
+
+        addAiMessage('assistant', assistantText);
+        saveAiMessages();
     } finally {
         // Re-enable input
         inputEl.disabled = false;
@@ -984,52 +1003,60 @@ async function sendAiMessage() {
     inputEl.value = '';
 }
 
-// Load AI messages from backend
-async function loadAiMessages() {
+function loadCachedAiMessagesFromLocalStorage() {
     try {
-        // Try to load from backend first
-        const response = await aiAPI.getHistory();
-        if (response && response.history && Array.isArray(response.history)) {
-            // Check if we have history
-            if (response.history.length > 0) {
-                aiMessages = response.history.map(msg => ({
-                    role: msg.role,
-                    text: msg.text,
-                    time: msg.timestamp || new Date()
-                }));
+        const saved = localStorage.getItem('aiMessages');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
             }
         }
+    } catch (e) {
+        console.error('Error parsing local AI messages:', e);
+    }
+    return null;
+}
 
-        // If empty (new user or cleared), show welcome message
-        if (aiMessages.length === 0) {
-            addAiMessage('assistant', 'Hello! 👋 I\'m your SpendWise AI assistant, and I\'m here to help you achieve your financial goals. I can provide personalized, thoughtful advice about budgeting, saving, investing, income generation, and reaching your financial targets - all tailored to your situation in Uganda.\n\nFeel free to ask me anything! Whether you want to know how to accomplish your goals, increase your income, optimize your spending, or explore investment opportunities, I\'m here to have an open conversation and help you think through your options.');
+// Load AI messages from backend
+async function loadAiMessages() {
+    const welcome =
+        'Hello! I\'m your SpendWise AI assistant. I can help with budgeting, goals, spending, and income—tailored to your situation in Uganda.\n\nAsk me anything: from a quick hello to a deep dive on your finances.';
+
+    try {
+        const response = await aiAPI.getHistory();
+        if (response && Array.isArray(response.history) && response.history.length > 0) {
+            aiMessages = response.history.map(msg => ({
+                role: msg.role,
+                text: msg.text,
+                time: msg.timestamp || new Date()
+            }));
+        } else {
+            const cached = loadCachedAiMessagesFromLocalStorage();
+            aiMessages = cached || [];
         }
 
-        // Cache to localStorage for offline support
+        if (aiMessages.length === 0) {
+            addAiMessage('assistant', welcome);
+        }
+
         saveAiMessages();
         renderAiMessages();
     } catch (error) {
         console.error('Error loading AI messages from backend:', error);
 
-        // Fallback to localStorage
-        try {
-            const saved = localStorage.getItem('aiMessages');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                aiMessages = parsed;
-            }
-        } catch (e) {
-            console.error('Error parsing local messages:', e);
-        }
+        const cached = loadCachedAiMessagesFromLocalStorage();
+        aiMessages = cached || [];
 
         if (aiMessages.length === 0) {
-            addAiMessage('assistant', 'Hello! 👋 I\'m your SpendWise AI assistant, and I\'m here to help you achieve your financial goals. I can provide personalized, thoughtful advice about budgeting, saving, investing, income generation, and reaching your financial targets - all tailored to your situation in Uganda.\n\nFeel free to ask me anything! Whether you want to know how to accomplish your goals, increase your income, optimize your spending, or explore investment opportunities, I\'m here to have an open conversation and help you think through your options.');
+            addAiMessage('assistant', welcome);
         }
+        saveAiMessages();
         renderAiMessages();
     }
 }
 
-// Save AI messages to localStorage for offline access
+// Save AI messages to localStorage
 function saveAiMessages() {
     try {
         localStorage.setItem('aiMessages', JSON.stringify(aiMessages));
@@ -1038,9 +1065,8 @@ function saveAiMessages() {
     }
 }
 
-// Expose AI functions globally
+// Expose AI send function globally
 window.sendAiMessage = sendAiMessage;
-window.clearAiChat = clearAiChat;
 
 // Render recent transactions
 function renderRecentTransactions() {
@@ -1730,15 +1756,11 @@ async function loadNotifications() {
 // Clear AI chat (wrapper for the HTML Clear button)
 function clearAiChat() {
     aiMessages = [];
-    // Also clear localStorage cache so it doesn't repopulate on page reload
-    localStorage.removeItem('aiMessages');
     const container = document.getElementById('aiChatMessages');
     if (container) {
         container.innerHTML = '';
-        addAiMessage('assistant', 'Chat cleared! How can I help you with your finances today? 😊');
+        addAiMessage('assistant', 'Chat cleared! How can I help you with your finances today?');
         renderAiMessages();
     }
-    saveAiMessages();
 }
 
-window.clearAiChat = clearAiChat;

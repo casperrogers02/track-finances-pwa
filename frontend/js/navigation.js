@@ -1,5 +1,19 @@
 // Shared navigation functionality for Cursor-style layout
 
+function resolveProfilePictureUrl(pic) {
+    if (!pic) return null;
+    if (pic.startsWith('data:') || pic.startsWith('http')) return pic;
+    if (pic.startsWith('/uploads')) {
+        const base = window.API_BASE_URL || 'https://track-finances-pwa-production.up.railway.app/api';
+        try {
+            return new URL(base).origin + pic;
+        } catch (e) {
+            return pic;
+        }
+    }
+    return pic;
+}
+
 // Initialize navigation
 document.addEventListener('DOMContentLoaded', () => {
     // Check authentication
@@ -32,15 +46,15 @@ function initNavigation() {
 
     if (hamburgerBtn && sidebar && sidebarOverlay) {
         hamburgerBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
-            sidebarOverlay.classList.toggle('show');
+            sidebar.classList.toggle('active');
+            sidebarOverlay.classList.toggle('active');
         });
     }
 
     if (sidebarOverlay) {
         sidebarOverlay.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-            sidebarOverlay.classList.remove('show');
+            sidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
         });
     }
 
@@ -49,8 +63,8 @@ function initNavigation() {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             if (window.innerWidth <= 768) {
-                sidebar?.classList.remove('open');
-                sidebarOverlay?.classList.remove('show');
+                sidebar?.classList.remove('active');
+                sidebarOverlay?.classList.remove('active');
             }
         });
     });
@@ -93,12 +107,12 @@ function updateProfileAvatar() {
     const avatar = document.getElementById('profileAvatar');
     if (!avatar) return;
 
-    // Check localStorage first for image (fastest)
-    const pictureUrl = localStorage.getItem('profilePicture');
-
-    // Use window.getUser if available (from module), otherwise try global
     const getUserFn = window.getUser || (typeof getUser !== 'undefined' ? getUser : null);
     const user = getUserFn ? getUserFn() : null;
+
+    const fromUser = user && user.profile_picture ? resolveProfilePictureUrl(user.profile_picture) : null;
+    const fromStorage = localStorage.getItem('profilePicture');
+    const pictureUrl = fromUser || fromStorage;
 
     if (pictureUrl) {
         avatar.style.backgroundImage = `url(${pictureUrl})`;
@@ -337,46 +351,39 @@ function logout() {
             localStorage.removeItem('token');
         }
         localStorage.removeItem('user');
+        localStorage.removeItem('profilePicture');
         window.location.href = 'login.html';
     }
 }
 
 window.logout = logout;
 
-// Sync profile picture from server using /me endpoint (which returns profile_picture from DB)
+// Sync profile picture from server
 async function syncProfilePictureFromServer() {
     try {
         const API_BASE_URL = window.API_BASE_URL || 'https://track-finances-pwa-production.up.railway.app/api';
-        const getTokenFn = window.getToken || (typeof getToken !== 'undefined' ? getToken : null);
-        const getUserFn = window.getUser || (typeof getUser !== 'undefined' ? getUser : null);
-        const setUserFn = window.setUser || (typeof setUser !== 'undefined' ? setUser : null);
-        if (!getTokenFn || !getTokenFn()) return;
-
-        const response = await fetch(`${API_BASE_URL}/me`, {
-            headers: { 'Authorization': `Bearer ${getTokenFn()}` }
+        const response = await fetch(`${API_BASE_URL}/profile/picture`, {
+            headers: {
+                'Authorization': `Bearer ${getToken()}`
+            }
         });
         
         if (response.ok) {
             const data = await response.json();
-            const serverPic = data.user?.profile_picture;
-            if (serverPic) {
-                // Update user object and local cache
-                if (getUserFn && setUserFn) {
-                    const user = getUserFn();
-                    if (user) {
-                        user.profile_picture = serverPic;
-                        // Also sync full_name, email in case they changed on another device
-                        if (data.user.full_name) user.full_name = data.user.full_name;
-                        if (data.user.email) user.email = data.user.email;
-                        if (data.user.preferred_currency) user.preferred_currency = data.user.preferred_currency;
-                        setUserFn(user);
-                    }
+            if (data.profile_picture) {
+                const user = getUser();
+                if (user) {
+                    user.profile_picture = data.profile_picture;
+                    setUser(user);
                 }
-                localStorage.setItem('profilePicture', serverPic);
+                
+                const fullUrl = resolveProfilePictureUrl(data.profile_picture) || data.profile_picture;
+
+                localStorage.setItem('profilePicture', fullUrl);
                 updateProfileAvatar();
             }
         }
     } catch (error) {
-        console.log('Could not sync profile from server:', error);
+        console.log('Could not sync profile picture from server:', error);
     }
 }
