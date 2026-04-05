@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1.3.1';
+const CACHE_VERSION = 'v1.3.2';
 const STATIC_CACHE_NAME = `spendwise-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `spendwise-dynamic-${CACHE_VERSION}`;
 

@@ -32,15 +32,15 @@ function initNavigation() {
 
     if (hamburgerBtn && sidebar && sidebarOverlay) {
         hamburgerBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('active');
-            sidebarOverlay.classList.toggle('active');
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('show');
         });
     }
 
     if (sidebarOverlay) {
         sidebarOverlay.addEventListener('click', () => {
-            sidebar.classList.remove('active');
-            sidebarOverlay.classList.remove('active');
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('show');
         });
     }
 
@@ -49,8 +49,8 @@ function initNavigation() {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             if (window.innerWidth <= 768) {
-                sidebar?.classList.remove('active');
-                sidebarOverlay?.classList.remove('active');
+                sidebar?.classList.remove('open');
+                sidebarOverlay?.classList.remove('show');
             }
         });
     });
