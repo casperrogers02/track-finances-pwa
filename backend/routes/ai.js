@@ -13,40 +13,84 @@ if (apiKey) {
 }
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
-const FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+const FALLBACK_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-latest',
+];
 
 function uniqueModelList() {
   const list = [DEFAULT_MODEL, ...FALLBACK_MODELS];
   return [...new Set(list)];
 }
 
+/**
+ * Gemini multi-turn chat requires alternating user/model. If AI failed after inserting a user row,
+ * history ends with user and startChat+sendMessage would stack two user turns and break.
+ */
+function sanitizeGeminiHistory(dbHistory) {
+  const out = [...dbHistory];
+  while (out.length > 0 && out[out.length - 1].role === 'user') {
+    out.pop();
+  }
+  return out;
+}
+
+function historyToTranscript(dbHistory) {
+  if (!dbHistory.length) return '';
+  return dbHistory
+    .map((turn) => {
+      const t = turn.parts?.[0]?.text || '';
+      return turn.role === 'user' ? `User: ${t}` : `Assistant: ${t}`;
+    })
+    .join('\n\n');
+}
+
+function extractTextFromGeminiResponse(response) {
+  try {
+    const t = response.text();
+    if (t && String(t).trim()) return String(t).trim();
+  } catch (e) {
+    const fb = response.promptFeedback;
+    const block = fb?.blockReason;
+    const cand = response.candidates?.[0];
+    const parts = cand?.content?.parts || [];
+    const chunks = parts.filter((p) => p && p.text).map((p) => p.text);
+    if (chunks.length) return chunks.join('\n').trim();
+    const reason = cand?.finishReason || block || e.message || 'no_response';
+    throw new Error(`Gemini returned no text (${reason})`);
+  }
+  throw new Error('Gemini returned empty text');
+}
+
+/**
+ * Single generateContent call avoids startChat alternation bugs when DB has orphan user rows.
+ */
 async function generateReplyWithModelFallback(genAIInstance, dbHistory, fullPrompt) {
   const modelsToTry = uniqueModelList();
   const generationConfig = {
-    maxOutputTokens: 1000,
+    maxOutputTokens: 1024,
     temperature: 0.7,
   };
+
+  const safeHistory = sanitizeGeminiHistory(dbHistory);
+  const transcript = historyToTranscript(safeHistory);
+  const combinedPrompt = transcript
+    ? `${transcript}\n\n---\nCurrent request:\n${fullPrompt}`
+    : fullPrompt;
 
   let lastError = null;
 
   for (const modelName of modelsToTry) {
     try {
       const m = genAIInstance.getGenerativeModel({ model: modelName });
-      let chat;
-      try {
-        chat = m.startChat({
-          history: dbHistory,
-          generationConfig,
-        });
-      } catch (err) {
-        console.warn(`Invalid chat history for ${modelName}, starting clean session:`, err.message);
-        chat = m.startChat({ generationConfig });
-      }
-
-      const result = await chat.sendMessage(fullPrompt);
-      const response = await result.response;
-      const reply = response.text();
-      return reply;
+      const result = await m.generateContent({
+        contents: [{ role: 'user', parts: [{ text: combinedPrompt }] }],
+        generationConfig,
+      });
+      const response = result.response;
+      return extractTextFromGeminiResponse(response);
     } catch (err) {
       lastError = err;
       console.warn(`Gemini model "${modelName}" failed:`, err.message || err);
